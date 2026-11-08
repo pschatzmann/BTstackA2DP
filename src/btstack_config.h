@@ -46,6 +46,9 @@
   #define HCI_OUTGOING_PRE_BUFFER_SIZE 1
   #define HAVE_FREERTOS_INCLUDE_PREFIX
   #define HAVE_FREERTOS_TASK_NOTIFICATIONS
+#elif defined(ARDUINO_ARCH_NRF52840) && defined(ARDUINO_ARCH_MBED)
+  // nRF52840 (mbed): embedded run loop driven by hal_time_ms(); no malloc in btstack itself
+  #define HAVE_EMBEDDED_TIME_MS
 #elif defined(__linux__) || defined(__APPLE__)
   #define HAVE_MALLOC
   #define HAVE_POSIX_FILE_IO

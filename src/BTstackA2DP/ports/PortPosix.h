@@ -28,6 +28,7 @@
 #ifdef BTSTACKA2DP_USE_LIBUSB
 #include <btstack/hci_transport_usb.h>
 #endif
+#include "HciSocketTransport.h"
 
 namespace blue_a2dp {
 
@@ -42,6 +43,22 @@ class PortPosix {
                             const void* config = nullptr) {
     s().transport = transport;
     s().transport_config = config;
+  }
+
+  /// Use the controller hci<device_id> through the Linux HCI user channel instead of a USB
+  /// dongle, e.g. the onboard Bluetooth of a Raspberry Pi (see ports/HciSocketTransport.h).
+  /// Needs root, and the bluetooth service must not use the adapter. Call before start().
+  static void set_hci_device(int device_id) {
+#if defined(__linux__)
+    State& st = s();
+    st.hci_config.type = HCI_TRANSPORT_CONFIG_LINUX;
+    st.hci_config.device_id = device_id;
+    st.transport = HciSocketTransport::instance();
+    st.transport_config = &st.hci_config;
+#else
+    (void)device_id;
+    fprintf(stderr, "BTstackA2DP: HCI device selection is only available on Linux, use a USB dongle\n");
+#endif
   }
 
 #ifdef BTSTACKA2DP_USE_LIBUSB
@@ -135,6 +152,7 @@ class PortPosix {
     void* setup_ctx = nullptr;
     const hci_transport_t* transport = nullptr;
     const void* transport_config = nullptr;
+    hci_transport_config_linux_t hci_config;
     const char* tlv_path = nullptr;
     bool tlv_path_set = false;
     char tlv_path_buffer[512];

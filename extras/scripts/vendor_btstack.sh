@@ -107,8 +107,7 @@ for f in btstack_run_loop_posix.c btstack_tlv_posix.c hci_dump_posix_stdout.c hc
 done
 guard "$DST/hci_transport_h2_libusb.c" "($POSIX_COND) && defined(BTSTACKA2DP_USE_LIBUSB)"
 guard "$DST/btstack_run_loop_freertos.c" "$FREERTOS_COND"
-# generic embedded run loop is unused (ports bring their own); drop it
-rm -f "$DST/btstack_run_loop_embedded.c"
+guard "$DST/btstack_run_loop_embedded.c" "defined(ARDUINO_ARCH_NRF52840) && defined(ARDUINO_ARCH_MBED)"
 
 # ---- core files: skip on RP2040 (the arduino-pico core ships btstack) ------
 CORE_COND='!defined(ARDUINO_ARCH_RP2040) || defined(BTSTACKA2DP_FORCE_VENDORED_BTSTACK)'

@@ -9,8 +9,10 @@
 #include "PortESP32.h"
 #elif defined(ARDUINO_ARCH_RP2040)
 #include "PortRP2040.h"
+#elif defined(ARDUINO_ARCH_NRF52840) && defined(ARDUINO_ARCH_MBED)
+#include "PortNRF52.h"
 #elif defined(__linux__) || defined(__APPLE__)
 #include "PortPosix.h"
 #else
-#error "BTstackA2DP: no port for this platform yet (supported: ESP32, RP2040/RP2350, Linux, macOS)."
+#error "BTstackA2DP: no port for this platform yet (supported: ESP32, RP2040/RP2350, nRF52840 (mbed), Linux, macOS)."
 #endif

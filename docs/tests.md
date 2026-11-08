@@ -105,6 +105,30 @@ The CSR dongle (0a12:0001, bus 1 port 2) was unplugged during the last run.
 | D6 | `--usb` never touches the built-in controller | PASS | 2026-11-08 | wrong path gives "no controller", built-in one untouched |
 | D7 | macOS build and run | TODO | | |
 
+### 3.5 Raspberry Pi (onboard Bluetooth, `blue_a2dp --hci 0`)
+Setup: Raspberry Pi with Raspberry Pi OS (BlueZ), `hciconfig -a` shows `hci0`, `bluetooth` service
+stopped while the tool runs. Desktop tool built on the Pi with the plain CMake build.
+
+| ID | Test | Status | Date | Notes |
+|---|---|---|---|---|
+| R-P1 | `--hci 0` takes the adapter (no `EBUSY` / `ENODEV`), HCI reset and start-up work | TODO | | the code path is compiled; without root the bind fails with EPERM (checked on the x86 desktop) |
+| R-P2 | Pi as sink: a phone or PC pairs and `sink --wav` records correct audio | TODO | | |
+| R-P3 | Pi as source: `source SPEAKER --file x.wav` heard on a speaker | TODO | | |
+| R-P4 | After the tool ends the adapter comes back after `systemctl start bluetooth` | TODO | | |
+
+### 3.6 nRF52840 (Arduino Nano 33 BLE, mbed core) with an external HCI module
+Setup: CSR8811-type module on Serial1 (D0/D1), standard HCI firmware at 921600 baud. Compiled with
+`arduino:mbed_nano:nano33ble` (`sink-serial` and `source-sine`: no errors).
+
+| ID | Test | Status | Date | Notes |
+|---|---|---|---|---|
+| N1 | Compile `sink-serial` and `source-sine` | PASS | 2026-11-08 | 18 % flash, 24 % RAM |
+| N2 | Module answers HCI reset; `start()` returns true | TODO | | the btstack thread is started; not run on a board yet |
+| N3 | Sink: pairs and receives SBC audio at 921600 baud | TODO | | |
+| N4 | Source: streams a sine to a speaker without gaps (`extras/test/gaps.py`) | TODO | | |
+| N5 | RTS/CTS wiring and `set_uart()` with a non-default pin set | TODO | | |
+| N6 | Pairing survives a reset | N/A | | pairing is kept in RAM only (limitation) |
+
 ## 4. Codec interoperability
 Fill in per device: the codec that was actually negotiated and whether it sounds right.
 Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
@@ -148,6 +172,7 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | 2026-11-08 | ESP32 `sink-serial`, PC as source | discovery, pairing, connection and SBC audio work (E1 to E4) |
 | 2026-11-08 | Desktop tool `play` with generated files | WAV, MP3, AAC decode correctly (A6 to A8) |
 | 2026-11-08 | All automated tests | 5 of 5 PASS |
+| 2026-11-08 | Added nRF52840 (mbed) port and Linux HCI user-channel transport (`--hci`) | compiles: nRF52840 examples, desktop tool; `--hci 99` reports the bind error; no hardware run |
 | 2026-11-08 | ESP32 source, first debug build, listened to on the PC | audio breaks up badly: the per-packet debug log over serial stalled the Bluetooth task (R11) |
 | 2026-11-08 | ESP32 source without debug output, recorded on the PC with `parec`, analyzed with `gaps.py` | clean: 440.0 Hz, 0 discontinuities in 23.3 s (S1, S2, S8) |
 | 2026-11-08 | Desktop sink on the CSR dongle with ESP32 source and with the PC as source | no connection completes (D2, R9); afterwards the dongle is no longer on the USB bus |

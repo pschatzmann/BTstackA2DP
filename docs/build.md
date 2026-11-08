@@ -53,6 +53,22 @@ Messages go to stderr, so stdout can be piped.
   get an HCI trace and the connection log on stdout. On a microcontroller this prints to the
   serial port: use it only to find problems, as the logging slows the Bluetooth task down.
 
+### Raspberry Pi (onboard Bluetooth)
+The desktop tool also runs on a Raspberry Pi with Raspberry Pi OS, using the onboard Bluetooth
+instead of a USB dongle (build as above, no `--usb`). The kernel and BlueZ bring the onboard
+controller up as `hci0` at boot, including its firmware. The tool then takes the adapter over
+through the HCI user channel, so BlueZ must release it first:
+```
+hciconfig -a                       # hci0 must exist
+sudo systemctl stop bluetooth
+sudo ./build/blue_a2dp sink --hci 0 --wav recording.wav
+sudo systemctl start bluetooth     # when you are done: the adapter is down after the tool ends
+```
+`--hci N` needs root (or `CAP_NET_ADMIN`). If the bind fails with "Device or resource busy", BlueZ
+still uses the adapter; with "No such device" there is no `hciN`. `--hci` and `--usb` cannot be
+combined. The same option works for a USB dongle that BlueZ has loaded, not only for the onboard
+chip. **Status:** not run on a Raspberry Pi yet (see [tests](tests.md), section 3.5).
+
 ### Playback and MP3 / AAC files (audio-tools build)
 `--play` and `.mp3` / `.aac` files use [arduino-audio-tools](https://github.com/pschatzmann/arduino-audio-tools)
 (MiniAudioStream and the libhelix decoders). On the desktop it needs the Arduino-Emulator and miniaudio. **Recommended: use local copies**
@@ -78,6 +94,31 @@ Without this option `--play` and MP3 / AAC files are rejected with a message.
 known 1 kHz test tone; WAV output including Ctrl-C; Miniaudio playback timing (silent file);
 stdout output; all self tests. **Not yet tested with a real Bluetooth link:** `sink --wav`,
 `sink --play` and `source --file` (they only connect the tested parts to the stack).
+
+## Arduino Nano 33 BLE (nRF52840, mbed core)
+Select `arduino:mbed_nano:nano33ble` (Arduino Mbed OS Nano Boards). The nRF52840 has no Classic
+Bluetooth radio, so **A2DP needs an external HCI module on a UART**, for example a CSR8811
+BlueCore module with the standard HCI firmware. Wiring:
+
+| Module | Nano 33 BLE |
+|---|---|
+| VCC | 3.3 V (check the module's voltage) |
+| GND | GND |
+| RXD (input) | D1 (TX) |
+| TXD (output) | D0 (RX) |
+| RTS / CTS (optional, recommended) | any two free pins, see `set_uart()` |
+
+* The default UART is the one of `Serial1` (D0/D1) at 921600 baud without flow control. A2DP needs
+  at least about 921600 baud (115200 is too slow for SBC audio), so the module has to run at that
+  speed. For other pins, flow control or baud rates call `set_uart()` before `start()`:
+  ```cpp
+  blue_a2dp::Port::set_uart(PIN_TX, PIN_RX, PIN_RTS, PIN_CTS, 921600);  // -1 = no flow control
+  ```
+* btstack runs in an mbed thread (16 KB stack); the sketch does not need to call anything else.
+* Pairing information is kept in RAM only: pairing is lost after a reset.
+* Other nRF52 cores (Adafruit, Seeed) are not supported yet: they have no RTOS for the btstack
+  thread. Sketches built for the nRF52840 without a Bluetooth module will not start.
+* `sink-serial` and `source-sine` compile (about 18 % flash, 24 % RAM). **Not run on hardware yet.**
 
 ## Other microcontrollers
 Add a port in `src/BTstackA2DP/ports/`; `Port.h` documents the four functions it has to provide

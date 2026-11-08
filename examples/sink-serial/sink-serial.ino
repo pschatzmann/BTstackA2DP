@@ -16,7 +16,10 @@ void on_audio(const uint8_t* data, uint32_t length) {
 }
 
 void on_metadata(uint8_t id, const uint8_t* text) {
-  Serial.printf("metadata 0x%02x: %s\n", id, (const char*)text);
+  Serial.print("metadata 0x");
+  Serial.print(id, HEX);
+  Serial.print(": ");
+  Serial.println((const char*)text);
 }
 
 void on_connection(blue_a2dp::ConnectionState state, void*) {
@@ -24,7 +27,11 @@ void on_connection(blue_a2dp::ConnectionState state, void*) {
 }
 
 void on_audio_info(const blue_a2dp::AudioInfo& info, void*) {
-  Serial.printf("audio: %lu Hz, %u channels\n", (unsigned long)info.sample_rate, info.channels);
+  Serial.print("audio: ");
+  Serial.print((unsigned long)info.sample_rate);
+  Serial.print(" Hz, ");
+  Serial.print(info.channels);
+  Serial.println(" channels");
 }
 
 void setup() {
@@ -39,6 +46,8 @@ void setup() {
 }
 
 void loop() {
-  Serial.printf("received %lu bytes\n", (unsigned long)received_bytes);
+  Serial.print("received ");
+  Serial.print((unsigned long)received_bytes);
+  Serial.println(" bytes");
   delay(2000);
 }

@@ -40,6 +40,9 @@ static void usage(FILE* out) {
           "options for sink and source:\n"
           "  --usb BUS:PORT[.PORT...]  USB Bluetooth dongle, see `lsusb -t` (recommended: otherwise\n"
           "                            the first controller, maybe a built-in one, is used)\n"
+          "  --hci N                   Linux controller hciN through the HCI user channel (e.g. the\n"
+          "                            onboard Bluetooth of a Raspberry Pi), needs root and\n"
+          "                            `systemctl stop bluetooth`; instead of --usb\n"
           "  --name NAME               name of this device (sink default: BTstackA2DP-desktop)\n"
           "  --bonding FILE            file for the pairing data (default: ~/.blue_a2dp_bonding.tlv)\n"
           "  --no-bonding              keep the pairing data in RAM only\n"
@@ -63,6 +66,7 @@ static void usage(FILE* out) {
 // ---- options ------------------------------------------------------------------------
 struct Options {
   const char* usb = nullptr;
+  const char* hci = nullptr;
   const char* name = nullptr;
   const char* bonding = nullptr;
   bool no_bonding = false;
@@ -89,6 +93,8 @@ static bool parse(int argc, char** argv, int first, Options& o) {
     const char* tmp = nullptr;
     if (!strcmp(a, "--usb")) {
       if (!value(&o.usb)) return false;
+    } else if (!strcmp(a, "--hci")) {
+      if (!value(&o.hci)) return false;
     } else if (!strcmp(a, "--name")) {
       if (!value(&o.name)) return false;
     } else if (!strcmp(a, "--bonding")) {
@@ -130,11 +136,24 @@ static bool parse(int argc, char** argv, int first, Options& o) {
   return true;
 }
 
-// applies --usb / --bonding to the port before the stack is started
+// applies --usb / --hci / --bonding to the port before the stack is started
 static bool configure_port(const Options& o) {
+  if (o.usb && o.hci) {
+    fprintf(stderr, "use either --usb or --hci, not both\n");
+    return false;
+  }
   if (o.usb && !blue_a2dp::Port::set_usb_path(o.usb)) {
     fprintf(stderr, "bad USB path '%s', expected BUS:PORT[.PORT...]\n", o.usb);
     return false;
+  }
+  if (o.hci) {
+    char* end = nullptr;
+    long id = strtol(o.hci, &end, 10);
+    if (end == o.hci || *end != '\0' || id < 0 || id > 255) {
+      fprintf(stderr, "bad controller number '%s', expected e.g. --hci 0\n", o.hci);
+      return false;
+    }
+    blue_a2dp::Port::set_hci_device((int)id);
   }
   if (o.no_bonding) blue_a2dp::Port::set_bonding_file(nullptr);
   else if (o.bonding) blue_a2dp::Port::set_bonding_file(o.bonding);
@@ -147,8 +166,8 @@ static bool wait_ready(T& a2dp, int seconds = 6) {
   for (int i = 0; i < seconds * 10 && !a2dp.is_ready(); i++) usleep(100000);
   if (!a2dp.is_ready())
     fprintf(stderr,
-            "no Bluetooth controller found or it cannot be opened. Check --usb (see `lsusb -t`) and\n"
-            "that you have write access to the USB device (udev rule or root), see docs/build.md\n"
+            "no Bluetooth controller found or it cannot be opened. Check --usb (see `lsusb -t`) or\n"
+            "--hci (see `hciconfig -a`) and that you have access to it (udev rule or root), see docs/build.md\n"
             "If it worked before: unplug and replug the dongle (some cheap ones hang after a run).\n");
   if (!a2dp.is_ready()) {
     a2dp.end();      // power down and close the transport, so that the OS gets the dongle back
