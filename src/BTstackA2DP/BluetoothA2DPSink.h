@@ -93,6 +93,9 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
 
   void on_avrcp_connected() override {
     avrcp_target_support_event(avrcp_cid_, AVRCP_NOTIFICATION_EVENT_VOLUME_CHANGED);
+    // btstack answers the remote's volume registration with its own copy of the volume,
+    // which starts at 0: without this a source with software volume would mute itself
+    avrcp_target_adjust_absolute_volume(avrcp_cid_, (uint8_t)volume_);
     avrcp_target_support_event(avrcp_cid_, AVRCP_NOTIFICATION_EVENT_BATT_STATUS_CHANGED);
     avrcp_target_battery_status_changed(avrcp_cid_, AVRCP_BATTERY_STATUS_NORMAL);
     avrcp_controller_get_supported_events(avrcp_cid_);
@@ -227,9 +230,11 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
         break;
       case A2DP_SUBEVENT_SIGNALING_CONNECTION_ESTABLISHED:
         if (a2dp_subevent_signaling_connection_established_get_status(packet) != ERROR_CODE_SUCCESS) {
+          bd_addr_t addr;
+          a2dp_subevent_signaling_connection_established_get_bd_addr(packet, addr);
           a2dp_cid_ = 0;
           set_connection_state(ConnectionState::Disconnected);
-          schedule_reconnect();
+          handle_connection_failure(a2dp_subevent_signaling_connection_established_get_status(packet), addr);
         }
         break;
       case A2DP_SUBEVENT_STREAM_STARTED:

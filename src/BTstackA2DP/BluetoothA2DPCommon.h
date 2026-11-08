@@ -183,6 +183,7 @@ class BluetoothA2DPCommon {
     if (s == ConnectionState::Connected) {
       user_disconnect_ = false;
       reconnect_attempts_ = 0;
+      key_dropped_ = false;
     }
     if (connection_state_ == s) return;
     connection_state_ = s;
@@ -219,6 +220,27 @@ class BluetoothA2DPCommon {
     btstack_run_loop_set_timer(&reconnect_timer_, delay_ms);
     btstack_run_loop_add_timer(&reconnect_timer_);
   }
+
+  /// Called by the roles when the A2DP signaling connection could not be established.
+  /// If the remote device lost its bond (it was reset or "forgot" us) our stored link key is
+  /// useless and every retry would fail the same way: drop it, so the next attempt pairs again.
+  void handle_connection_failure(uint8_t status, bd_addr_t addr) {
+    BTSTACKA2DP_LOG("signaling connection to %s failed, status 0x%02x", bd_addr_to_str(addr), status);
+    if (status == L2CAP_CONNECTION_PIN_OR_LINK_KEY_MISSING || status == ERROR_CODE_PIN_OR_KEY_MISSING ||
+        status == ERROR_CODE_AUTHENTICATION_FAILURE) {
+      BTSTACKA2DP_LOG("link key rejected by %s: deleted, pairing again", bd_addr_to_str(addr));
+      gap_drop_link_key_for_bd_addr(addr);
+      if (!key_dropped_) {
+        key_dropped_ = true;  // once per connection: a failing new pairing uses the normal backoff
+        schedule_reconnect(1000);
+        return;
+      }
+    }
+    schedule_reconnect();
+  }
+
+  /// No automatic reconnects until the next successful connection (e.g. incompatible remote)
+  void stop_reconnecting() { user_disconnect_ = true; }
 
   void remote_volume_changed(int v) {
     volume_ = v;
@@ -508,6 +530,7 @@ class BluetoothA2DPCommon {
   btstack_timer_source_t reconnect_timer_;
   bool user_disconnect_ = false;
   uint8_t reconnect_attempts_ = 0;
+  bool key_dropped_ = false;  // stale link key already deleted in this reconnect cycle
   uint8_t sdp_avrcp_controller_[200];
   uint8_t sdp_avrcp_target_[200];
   uint8_t sdp_device_id_[100];

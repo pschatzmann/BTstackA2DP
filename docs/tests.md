@@ -27,25 +27,26 @@ PC as receiver record the speaker monitor, e.g. `parec -d <sink>.monitor --rate=
 | A11 | Unit tests in CI | run A1 to A5 automatically on every change | N/A | 2026-11-08 | unit tests removed from CI on request. `.github/workflows/tests.yml` now only builds the desktop tool and compiles two ESP32 examples. Not run on GitHub yet |
 
 ## 2. Build matrix
-`arduino-cli compile` for the examples; Pico W with *IP/Bluetooth Stack: IPv4 + Bluetooth*.
+`arduino-cli compile` for the examples; Pico W / Pico 2 W (`rpipicow`, `rpipico2w`) with *IP/Bluetooth Stack: IPv4 + Bluetooth* (`ipbtstack=ipv4btcble`).
 Desktop = CMake build.
 
-| Example | ESP32 | Pico W | Desktop |
+| Example | ESP32 | Pico W / Pico 2 W | Desktop |
 |---|---|---|---|
-| `sink-serial` | PASS | TODO (passed before the codec work) | N/A |
-| `source-sine` | PASS | TODO (passed before the codec work) | N/A |
-| `sink-i2s` (audio-tools) | PASS | TODO | N/A |
-| `sink-aac-i2s`, `source-aac` | PASS | TODO | N/A |
-| `sink-aptx-i2s`, `source-aptx` | PASS | TODO | N/A |
-| `sink-sbc-audiotools`, `source-sbc-audiotools` | PASS | TODO | N/A |
-| `sink-mp3-i2s`, `source-mp3` | PASS | TODO | N/A |
+| `sink-serial` | PASS | PASS (both boards) | N/A |
+| `source-sine` | PASS | PASS (both boards) | N/A |
+| `sink-i2s` (audio-tools) | PASS | PASS (both boards) | N/A |
+| `sink-aac-i2s`, `source-aac` | PASS | PASS (both boards) | N/A |
+| `sink-aptx-i2s`, `source-aptx` | PASS | PASS (both boards) | N/A |
+| `sink-sbc-audiotools`, `source-sbc-audiotools` | PASS | PASS (both boards) | N/A |
+| `sink-mp3-i2s`, `source-mp3` | PASS | PASS (both boards) | N/A |
 | `blue_a2dp` tool | N/A | N/A | PASS (plain and audio-tools build) |
 | ESP32-S2 / S3 / C3 / C6 | stops with the "needs Classic Bluetooth" error (checked on S3) | | |
 | ESP32-S31 | TODO | | |
 
 ESP32 examples were last built in full on 2026-11-08; `sink-serial` and `source-sine` were rebuilt
-after the last library change. The Pico W builds need to be repeated after the codec additions
-(they are slow: several minutes per sketch).
+after the last library change. All 11 examples were built for the Pico W and the Pico 2 W on
+2026-11-08 with the R20 / R21 / R22 fixes and the nRF52840 / Raspberry Pi commit: 22 of 22 PASS
+(slow: several minutes per sketch, run 4 in parallel). The ESP32 column predates those fixes.
 
 ## 3. Hardware tests
 
@@ -76,8 +77,8 @@ Setup: `sink-serial` flashed, PC (PipeWire) as source. Flash at 115200 baud (921
 | S2 | SBC stream plays the tone at the correct pitch | PASS | 2026-11-08 | 440.0 Hz at the negotiated 48 kHz (recorded on the PC) |
 | S8 | Gap test: 20+ s sine, no discontinuities or silence (`extras/test/gaps.py`) | PASS, with caveats | 2026-11-08 | run 1: 23 s clean. Run 2 (source still scanning while streaming, R12): 587 discontinuities in 38 s. After the fix (R12): 8 discontinuities and 4 silent runs in 38 s, not yet zero. Dongle unplugged between the runs, so the effect of the fix is not isolated |
 | S9 | Source stays quiet on the radio while streaming (no inquiry once connected) | PASS (by code, measurement above) | 2026-11-08 | fix in `BluetoothA2DPSource`; needs a repeated, longer gap test to rule out the remaining glitches |
-| S3 | Works with joint-stereo-only speakers (we offer plain stereo) | TODO | | not tested: needs a joint-stereo-only speaker |
-| S10 | ESP32 source to Pico 2 W sink (connection and stream) | PASS | 2026-11-08 | streamed for about 4 min at 44.1 kHz; the Pico's restart needs the ESP32 to reconnect (retry loop not finding it yet, see R19) |
+| S3 | Works with joint-stereo-only speakers | PASS (simulated) | 2026-11-08 | Pico sink made to advertise SBC joint stereo only. Before the fix: silent stream with a garbage configuration (R21). Now the source offers stereo and joint stereo, btstack picks joint stereo, clean sine on the Pico (residual 18). A sink without any common mode (mono only) is now refused: the remote rejects Set Configuration, the source disconnects and does not retry. Real joint-stereo-only speaker not tested |
+| S10 | ESP32 source to Pico 2 W sink (connection and stream) | PASS | 2026-11-08 | streamed for about 4 min at 44.1 kHz; the Pico's restart needed the ESP32 to reconnect: stale link key, fixed (R20); now reconnects by itself within about 2 s of the Pico coming back |
 | S4 | Volume: `set_volume` and volume buttons of the speaker | PASS (ESP32 pair) | 2026-11-08 | source `set_volume` reaches the sink (sink logs 50). Volume buttons of a real speaker not tested |
 | S5 | Speaker disconnects and returns: auto reconnect | PASS | 2026-11-08 | ESP32 sink reset during a stream: source reconnected by itself about 20 s later (`connected` at 12:29:08), audio resumed on the sink. Reset dropped one discontinuity |
 | S6 | `set_ssid_callback`, `start_with_address`, `start_raw` | TODO | | not tested yet |
@@ -86,11 +87,11 @@ Setup: `sink-serial` flashed, PC (PipeWire) as source. Flash at 115200 baud (921
 ### 3.3 Raspberry Pi Pico W
 | ID | Test | Status | Date | Notes |
 |---|---|---|---|---|
-| P1 | Sink: discoverable, pairs, receives SBC | PARTIAL | 2026-11-08 | Pico 2 W (`rpipico2w`, ipbtstack) runs the sink; the ESP32 source streams to it at 44.1 kHz stereo (about 176 kB/s). Pairing/PC not involved |
-| P2 | Sink with `sink-i2s` (non-blocking queue, no dropouts) | TODO | | continuity check sketch ready (`pico_gap`), run after the ESP32 reconnects to the Pico |
-| P3 | Source finds and streams to a speaker | TODO | | Pico source not started yet |
-| P4 | Extra codecs are skipped without error (one endpoint in the core's config) | TODO | | |
-| P5 | Coexistence with WiFi | TODO | | |
+| P1 | Sink: discoverable, pairs, receives SBC | PASS | 2026-11-08 | Pico 2 W (`rpipico2w`, `ipbtstack=ipv4btcble`), ESP32 `sine_source` as source: fresh pairing, 44.1 kHz stereo at exactly 176 128 B/s for 2.5 min, heap flat. Every Pico reflash wipes the Pico's link keys; the source now pairs again by itself (R20). PC/phone pairing not tested |
+| P2 | Sink with `sink-i2s` (non-blocking queue, no dropouts) | PASS (no DAC) | 2026-11-08 | sink-i2s structure (lock-free 32 KB queue, drained and sine-checked in `loop()`): 0 overflows, 0 gaps after the first 5 s window (the first window always has 1 to 20 gaps from the stream start), max SBC residual 187 to 299. I2S output itself not tested (no DAC) |
+| P3 | Source finds and streams to a speaker | PASS (ESP32 as speaker) | 2026-11-08 | Pico source finds `ESP-SINK` by name, connects in 1 s, 44.1 kHz for 2.5 min, 0 gaps after the start window on the ESP32 gap sink, ESP32 heap flat. Real speaker not tested |
+| P4 | Extra codecs are skipped without error (one endpoint in the core's config) | PASS | 2026-11-08 | `add_codec(aac)` returns 1, `start()` ok, AAC seid 0xFF (skipped), SBC stream clean. The skip is silent: nothing tells the user that AAC is unavailable |
+| P5 | Coexistence with WiFi | PARTIAL | 2026-11-08 | `WiFi.softAP` (`PICO-AP`, seen from the PC) next to the A2DP sink: stream clean, 0 gaps after the start window. No WiFi client / traffic. The first AAC+WiFi run had a silent Pico (no USB serial output while btstack still answered); not reproducible in 3 later runs |
 
 ### 3.4 Desktop (Linux) with a USB dongle
 The CSR dongle (0a12:0001, bus 1 port 2) was unplugged during the last run.
@@ -148,7 +149,7 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | R2 | aptX without RTP header: correct for real devices? **Confirmed** with PipeWire (packets start with the aptX stream prefix `4b bf 4b bf`) | done |
 | R3 | MP3 capability and configuration bytes (btstack encodes them asymmetrically) | a device that offers MP3, or a capture of the AVDTP exchange |
 | R4 | Pico W: core's `MAX_NR_AVDTP_STREAM_ENDPOINTS` is 1, extra codecs are skipped | P4 |
-| R5 | Plain stereo only for the source; some speakers may require joint stereo | S3 |
+| R5 | Plain stereo only for the source; some speakers may require joint stereo. **Fixed**: the source offers joint stereo too (R21) | S3 with a real speaker |
 | R6 | ESP32-S31: Classic Bluetooth available? Arduino core support? | when the core supports it |
 | R7 | Dropouts when the stream reader blocks (I2S write in the Bluetooth task) | E5 / E13 with `sink-i2s` |
 | R9 | Desktop sink on the CSR dongle (0a12:0001) never completes a connection. HCI trace: after accepting a connection the controller answers `Set_Connection_Encryption` with status 0x07 (Memory Capacity Exceeded) and **0 command credits**, so btstack cannot send anything else; the PC's connection request 18 s later is never answered (BlueZ: AuthenticationTimeout, the ESP32 stays "connecting"). A second run on the same dongle fails already at `HCI_Reset` (0x07, 0 credits). The controller reports HCI/LMP 5.1 with manufacturer 0x08E7: very likely a fake CSR8510 clone | **Not our code, most probably.** Repeat with another dongle (genuine CSR8510, Realtek, Intel). The same ESP32 works with the PC's built-in controller in both roles |
@@ -163,6 +164,9 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | R16 (start-up part fixed: skip `libusb_set_configuration` when already configured; the dongle can start and shut down cleanly now) | The libusb transport resets the dongle at start (`libusb_reset_device`); with this CSR clone the device then vanishes from the bus, every run. Opening a dongle that is not on the bus (or is half-initialised) blocks instead of failing; the tool needs a timeout around controller start. Also: after each run the libusb transport leaves the dongle without kernel driver (`Driver=[none]`), so the next run usually fails until a replug (R10 patch not effective yet) | timeout in the start path; verify the reattach patch on close |
 | R11 | Debug logging at 115200 baud stalls the Bluetooth task: the first debug build made the stream break up badly. Log lines must never be printed per packet | fixed for the per-packet event; keep `BTSTACKA2DP_DEBUG` off in production |
 | R8 | A2DP volume: absolute volume only, no local gain curve | E11 |
+| R20 | **Fixed.** Stale link key was never recovered. When the peer lost its bond (Pico reflashed, speaker reset or "forgot" the device) the source's A2DP signaling connection fails with 0x63 (`L2CAP_CONNECTION_PIN_OR_LINK_KEY_MISSING`), and the source retries forever with the same key (backoff up to 60 s) without pairing again. Likely the cause of the Pico restart problem in S10 / R19 | **Fixed** in both roles (`handle_connection_failure`): on 0x63, 0x05 or 0x06 the key for that address is deleted and the connection retried after 1 s, which pairs again (once per reconnect cycle; afterwards the normal backoff). Verified: Pico reflashed under a bonded ESP32 source, connected again about 2 s later, no erase. Sink side (phone that forgot the device) not tested on hardware |
+| R21 | **Fixed.** Joint-stereo-only sink gave a silent stream. The source offers only `AVDTP_SBC_STEREO`; with no common channel mode btstack still sends a (malformed) SBC configuration and our `configure_sbc()` uses it unchecked (0 blocks / subbands, so no packets). Confirms R5 | **Fixed**: the source offers joint stereo (it was in the comment, missing in the code); `configure_sbc()` rejects an invalid configuration and disconnects; `A2DP_SUBEVENT_COMMAND_REJECTED` during set-up disconnects too (before, a mono-only sink left the source in "connecting" forever). No automatic retry against an incompatible device. Verified with joint-only and mono-only Pico sinks |
+| R22 | **Fixed.** The sink muted a source with software volume: btstack's AVRCP target answers the source's volume registration with its own copy of the volume, which starts at 0, so the source set its volume to 0 and sent digital silence (the ESP32 source to the Pico sink delivered only zeros once AVRCP connected) | `on_avrcp_connected()` of the sink sets btstack's copy with `avrcp_target_adjust_absolute_volume(volume_)`; source now gets 127, sine arrives at full level. Affects every sink setup, including phones / PCs that apply the reported volume |
 
 ## 6. Log
 | Date | What | Result |
@@ -208,3 +212,5 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | 2026-11-08 | Source-side status updated: S4 PASS (ESP32 pair volume), S7 PARTIAL (about 25 min continuous, one reset-triggered reconnect) | |
 | 2026-11-08 | **Working mode changed**: run many tests quickly, only identify problems, fix later | |
 | 2026-11-08 | `gaps.py` validated on synthetic data | detects silence, dropped and repeated samples; no false alarm on clean or noisy tones |
+| 2026-11-08 | Pico tests against the ESP32 (scratch sketches `gap_sink`, `sine_source`; the sine check runs on the receiving board) | P1, P2, P3, P4 PASS; P5 PARTIAL; S3 FAIL (R21); new R20 (stale link key). Debug log now shows the signaling failure status and the negotiated SBC configuration |
+| 2026-11-08 | Fixes for R20 and R21, found R22 on the way (the joint-stereo change looked guilty: SBC loopback on the ESP32 and on the Pico, stereo and joint stereo, all RMS 7074; stereo-only source still silent; source log showed `volume event 0`) | R20, R21, R22 fixed and verified on ESP32 + Pico 2 W; S3 PASS (simulated); regression ESP32 source to Pico sink clean (residual 19, 0 gaps after start) |
