@@ -41,6 +41,7 @@ The Pico W build matrix was last checked before the codec additions.
 | [Codecs](docs/codecs.md) | SBC, AAC, aptX, MP3 and own codecs via arduino-audio-tools |
 | [Build notes](docs/build.md) | ESP32, Pico W, nRF52840 (Nano 33 BLE), desktop, Raspberry Pi, new ports, updating btstack |
 | [Tests](docs/tests.md) | test plan and tracker: what is verified, what is still open |
+| [Migrating from ESP32-A2DP](docs/migration-from-esp32-a2dp.md) | example-by-example comparison, API mapping, proposed improvements |
 
 The `examples/` folder has ready-to-run sketches for each of them.
 
