@@ -12,7 +12,7 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
  public:
   BluetoothA2DPSource() {
     // 44.1 / 48 kHz, stereo / joint stereo, all block lengths, subbands, allocation methods
-    caps_[0] = (AVDTP_SBC_44100 << 4) | (AVDTP_SBC_48000 << 4) | AVDTP_SBC_STEREO;
+    caps_[0] = (AVDTP_SBC_44100 << 4) | (AVDTP_SBC_48000 << 4) | AVDTP_SBC_STEREO | AVDTP_SBC_JOINT_STEREO;
     caps_[1] = 0xFF;
     caps_[2] = 2;
     caps_[3] = 53;
@@ -334,9 +334,11 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
     switch (packet[2]) {
       case A2DP_SUBEVENT_SIGNALING_CONNECTION_ESTABLISHED:
         if (a2dp_subevent_signaling_connection_established_get_status(packet) != ERROR_CODE_SUCCESS) {
+          bd_addr_t addr;
+          a2dp_subevent_signaling_connection_established_get_bd_addr(packet, addr);
           a2dp_cid_ = 0;
           set_connection_state(ConnectionState::Disconnected);
-          schedule_reconnect();
+          handle_connection_failure(a2dp_subevent_signaling_connection_established_get_status(packet), addr);
           break;
         }
         a2dp_cid_ = a2dp_subevent_signaling_connection_established_get_a2dp_cid(packet);
@@ -348,8 +350,12 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
         close_codec();
         if (sbc_codec_ && sbc_codec_->configure(packet)) {
           active_codec_ = sbc_codec_;
-        } else {
-          configure_sbc(packet);
+        } else if (!configure_sbc(packet)) {
+          // e.g. no channel mode in common: streaming would only send silence. Retrying
+          // would give the same result, so no automatic reconnect either.
+          BTSTACKA2DP_LOG("unusable SBC configuration from the remote device: disconnecting");
+          stop_reconnecting();
+          a2dp_source_disconnect(a2dp_cid_);
         }
         break;
       case A2DP_SUBEVENT_SIGNALING_MEDIA_CODEC_MPEG_AAC_CAPABILITY:
@@ -366,6 +372,17 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
         close_codec();
         for (int i = 0; i < codec_count_; i++)
           if (codecs_[i]->configure(packet)) active_codec_ = codecs_[i];
+        break;
+      case A2DP_SUBEVENT_COMMAND_REJECTED:
+        // while the stream is being set up this usually means the remote refused our
+        // configuration (no common SBC parameters): btstack does not continue by itself,
+        // so without this the connection would stay in "connecting" forever
+        BTSTACKA2DP_LOG("command 0x%02x rejected by the remote device",
+                        a2dp_subevent_command_rejected_get_signal_identifier(packet));
+        if (!is_connected() && a2dp_cid_) {
+          stop_reconnecting();
+          a2dp_source_disconnect(a2dp_cid_);
+        }
         break;
       case A2DP_SUBEVENT_STREAM_ESTABLISHED:
         if (a2dp_subevent_stream_established_get_status(packet) != ERROR_CODE_SUCCESS) {
@@ -410,7 +427,8 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
     }
   }
 
-  void configure_sbc(uint8_t* packet) {
+  /// Returns false if the configuration chosen for the stream cannot be encoded
+  bool configure_sbc(uint8_t* packet) {
     sbc_cfg_.sampling_frequency = a2dp_subevent_signaling_media_codec_sbc_configuration_get_sampling_frequency(packet);
     sbc_cfg_.num_channels = a2dp_subevent_signaling_media_codec_sbc_configuration_get_num_channels(packet);
     sbc_cfg_.block_length = a2dp_subevent_signaling_media_codec_sbc_configuration_get_block_length(packet);
@@ -427,6 +445,22 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
       case AVDTP_CHANNEL_MODE_MONO: mode = SBC_CHANNEL_MODE_MONO; break;
       default: break;
     }
+    BTSTACKA2DP_LOG("sbc config: rate %d, channels %d, mode %d, blocks %d, subbands %d, bitpool %d-%d",
+                    sbc_cfg_.sampling_frequency, sbc_cfg_.num_channels,
+                    a2dp_subevent_signaling_media_codec_sbc_configuration_get_channel_mode(packet),
+                    sbc_cfg_.block_length, sbc_cfg_.subbands,
+                    a2dp_subevent_signaling_media_codec_sbc_configuration_get_min_bitpool_value(packet),
+                    sbc_cfg_.max_bitpool);
+    bool rate_ok = sbc_cfg_.sampling_frequency == 16000 || sbc_cfg_.sampling_frequency == 32000 ||
+                   sbc_cfg_.sampling_frequency == 44100 || sbc_cfg_.sampling_frequency == 48000;
+    bool blocks_ok = sbc_cfg_.block_length == 4 || sbc_cfg_.block_length == 8 ||
+                     sbc_cfg_.block_length == 12 || sbc_cfg_.block_length == 16;
+    bool subbands_ok = sbc_cfg_.subbands == 4 || sbc_cfg_.subbands == 8;
+    bool channels_ok = sbc_cfg_.num_channels == 1 || sbc_cfg_.num_channels == 2;
+    if (!rate_ok || !blocks_ok || !subbands_ok || !channels_ok || sbc_cfg_.max_bitpool < 2) {
+      encoder_ = nullptr;
+      return false;
+    }
     encoder_ = btstack_sbc_encoder_bluedroid_init_instance(&encoder_ctx_);
     encoder_->configure(&encoder_ctx_, SBC_MODE_STANDARD, sbc_cfg_.block_length, sbc_cfg_.subbands,
                         allocation, sbc_cfg_.sampling_frequency, sbc_cfg_.max_bitpool, mode);
@@ -434,6 +468,7 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
     // encoder with one frame of silence (the output is discarded)
     memset(pcm_, 0, sizeof(pcm_));
     encoder_->encode_signed_16(&encoder_ctx_, pcm_, media_.storage + 1);
+    return true;
   }
 
   // ---- media path ------------------------------------------------------------------------
