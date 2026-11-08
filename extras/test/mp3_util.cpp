@@ -1,6 +1,6 @@
 // Hardware free test of the MP3 (MPEG audio) helpers.
 #include <stdio.h>
-#include "BlueA2DP/codecs/Mp3Util.h"
+#include "BTstackA2DP/codecs/Mp3Util.h"
 using namespace blue_a2dp::mp3;
 static int fails = 0;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); fails++; } } while (0)

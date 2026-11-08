@@ -6,8 +6,8 @@
 #include <math.h>
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecMP3Shine.h"
-#include "BlueA2DP.h"
-#include "BlueA2DP/codecs/A2DPCodecMP3Encoder.h"
+#include "BTstackA2DP.h"
+#include "BTstackA2DP/codecs/A2DPCodecMP3Encoder.h"
 
 #define SPEAKER_NAME "MySpeaker"
 

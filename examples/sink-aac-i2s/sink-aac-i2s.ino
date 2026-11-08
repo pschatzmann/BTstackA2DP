@@ -8,8 +8,8 @@
 #include "AudioTools.h"
 #include "AudioTools/Concurrency/LockFree.h"
 #include "AudioTools/AudioCodecs/CodecAACHelix.h"
-#include "BlueA2DP.h"
-#include "BlueA2DP/codecs/A2DPCodecAACDecoder.h"
+#include "BTstackA2DP.h"
+#include "BTstackA2DP/codecs/A2DPCodecAACDecoder.h"
 
 BluetoothA2DPSink a2dp_sink;
 // AAC decoding with libhelix (needs the codec-helix library). The phone will use AAC
@@ -45,7 +45,7 @@ void setup() {
   a2dp_sink.add_codec(&aac);  // before start()
   a2dp_sink.set_audio_info_callback(on_info);
   a2dp_sink.set_stream_reader(on_audio);
-  a2dp_sink.start("BlueA2DP Speaker");
+  a2dp_sink.start("BTstackA2DP Speaker");
 }
 
 void loop() {

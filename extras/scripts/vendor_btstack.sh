@@ -28,7 +28,7 @@ mkdir -p "$DST"
 # files of an older layout, where btstack lived directly in src/
 rm -rf "${SRC_ROOT:?}/classic" "${SRC_ROOT:?}/ble"
 find "$SRC_ROOT" -maxdepth 1 -type f \( -name '*.c' -o -name '*.h' -o -name '*.inc' \) \
-  ! -name 'BlueA2DP.h' ! -name 'btstack_config.h' -delete
+  ! -name 'BTstackA2DP.h' ! -name 'btstack_config.h' -delete
 
 # ---- core (src/*.c|h) ------------------------------------------------------
 for f in "$SRC_BTSTACK"/src/*.[ch]; do
@@ -105,13 +105,13 @@ FREERTOS_COND='defined(ARDUINO_ARCH_ESP32)'
 for f in btstack_run_loop_posix.c btstack_tlv_posix.c hci_dump_posix_stdout.c hci_dump_posix_fs.c; do
   guard "$DST/$f" "$POSIX_COND"
 done
-guard "$DST/hci_transport_h2_libusb.c" "($POSIX_COND) && defined(BLUEA2DP_USE_LIBUSB)"
+guard "$DST/hci_transport_h2_libusb.c" "($POSIX_COND) && defined(BTSTACKA2DP_USE_LIBUSB)"
 guard "$DST/btstack_run_loop_freertos.c" "$FREERTOS_COND"
 # generic embedded run loop is unused (ports bring their own); drop it
 rm -f "$DST/btstack_run_loop_embedded.c"
 
 # ---- core files: skip on RP2040 (the arduino-pico core ships btstack) ------
-CORE_COND='!defined(ARDUINO_ARCH_RP2040) || defined(BLUEA2DP_FORCE_VENDORED_BTSTACK)'
+CORE_COND='!defined(ARDUINO_ARCH_RP2040) || defined(BTSTACKA2DP_FORCE_VENDORED_BTSTACK)'
 while IFS= read -r -d '' f; do
   case "$(basename "$f")" in
     btstack_run_loop_posix.c|btstack_tlv_posix.c|hci_dump_posix_stdout.c|hci_dump_posix_fs.c|\
@@ -166,7 +166,7 @@ s = open(p).read()
 old = '            libusb_release_interface(handle, 1);\n#endif\n            log_info("Libusb shutdown complete");'
 new = ('            libusb_release_interface(handle, 1);\n#endif\n'
        '#if !defined(__APPLE__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__FreeBSD__)\n'
-       '            libusb_attach_kernel_driver(handle, 0);  /* BlueA2DP patch: reattach the OS driver */\n'
+       '            libusb_attach_kernel_driver(handle, 0);  /* BTstackA2DP patch: reattach the OS driver */\n'
        '#endif\n            log_info("Libusb shutdown complete");')
 if old not in s:
     sys.exit("vendor_btstack.sh: libusb patch does not apply, btstack changed?")
@@ -180,7 +180,7 @@ import sys
 p = sys.argv[1]
 s = open(p).read()
 old = '    const int configuration = 1;\n    log_info("setting configuration %d...", configuration);\n    r = libusb_set_configuration(aHandle, configuration);'
-new = ('    const int configuration = 1;\n    // BlueA2DP patch: skip when already configured (stalls after the driver detach)\n'
+new = ('    const int configuration = 1;\n    // BTstackA2DP patch: skip when already configured (stalls after the driver detach)\n'
        '    int current = 0;\n    r = libusb_get_configuration(aHandle, &current);\n'
        '    if (r == 0 && current == configuration) {\n        r = 0;\n    } else {\n'
        '    log_info("setting configuration %d...", configuration);\n'

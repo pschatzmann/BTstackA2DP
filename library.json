@@ -1,10 +1,10 @@
 {
-  "name": "BlueA2DP",
+  "name": "BTstackA2DP",
   "version": "0.1.0",
   "description": "A2DP sink and source (Bluetooth audio) for Arduino based on the BlueKitchen btstack. ESP32, RP2040/Pico W and desktop.",
   "keywords": "a2dp, bluetooth, audio, btstack, avrcp, sbc",
   "authors": [{"name": "Phil Schatzmann"}],
-  "repository": {"type": "git", "url": "https://github.com/pschatzmann/BlueA2DP"},
+  "repository": {"type": "git", "url": "https://github.com/pschatzmann/BTstackA2DP"},
   "frameworks": "arduino",
   "platforms": ["espressif32", "raspberrypi"],
   "license": "SEE LICENSE IN LICENSE"

@@ -3,8 +3,8 @@
 //
 //   #include "AudioTools.h"
 //   #include "AudioTools/AudioCodecs/CodecSBC.h"
-//   #include "BlueA2DP.h"
-//   #include "BlueA2DP/codecs/A2DPCodecSBCDecoder.h"
+//   #include "BTstackA2DP.h"
+//   #include "BTstackA2DP/codecs/A2DPCodecSBCDecoder.h"
 //
 //   audio_tools::SBCDecoder sbc_decoder;
 //   blue_a2dp::A2DPCodecSBCDecoder<audio_tools::SBCDecoder> sbc(sbc_decoder);

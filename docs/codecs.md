@@ -11,7 +11,7 @@ so the core library does not depend on audio-tools or on any codec library.
 | aptX | `A2DPCodecAptxDecoder` | `A2DPCodecAptxEncoder` | codec-openaptx |
 | MP3 (experimental) | `A2DPCodecMP3Decoder` | `A2DPCodecMP3Encoder` | codec-helix / codec-shine |
 
-All adapters live in `BlueA2DP/codecs/` (`#include "BlueA2DP/codecs/<name>.h"`) and are
+All adapters live in `BTstackA2DP/codecs/` (`#include "BTstackA2DP/codecs/<name>.h"`) and are
 templates over the audio-tools class, e.g. `blue_a2dp::A2DPCodecAACDecoder<AACDecoderHelix>`.
 
 ## How a codec is chosen
@@ -96,7 +96,7 @@ source.set_sbc_codec(&sbc_src);
   aptX is a vendor codec (id `0x4F`/`0x0001`) sent without RTP header (`uses_rtp()`).
 
 ## Writing your own codec
-Implement `SinkCodec` and/or `SourceCodec` from `BlueA2DP/A2DPCodec.h`: advertise capabilities,
+Implement `SinkCodec` and/or `SourceCodec` from `BTstackA2DP/A2DPCodec.h`: advertise capabilities,
 react to the configuration event, and convert between media payloads and 16 bit PCM. The AAC and
 aptX adapters are about 100 lines each and make good templates. LC3 exists in audio-tools but is
 not wired up.

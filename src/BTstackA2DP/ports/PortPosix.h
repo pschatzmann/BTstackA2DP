@@ -1,6 +1,6 @@
 // Desktop port (Linux / macOS): btstack posix run loop in its own thread.
 // HCI transport defaults to a USB Bluetooth dongle via libusb (define
-// BLUEA2DP_USE_LIBUSB when building); a different transport can be installed with
+// BTSTACKA2DP_USE_LIBUSB when building); a different transport can be installed with
 // PortPosix::set_transport().
 #pragma once
 
@@ -21,11 +21,11 @@
 #include <btstack/classic/btstack_link_key_db_tlv.h>
 #include <btstack/hci.h>
 #include <btstack/hci_transport.h>
-#ifdef BLUEA2DP_DEBUG
+#ifdef BTSTACKA2DP_DEBUG
 #include <btstack/hci_dump.h>
 #include <btstack/hci_dump_posix_stdout.h>
 #endif
-#ifdef BLUEA2DP_USE_LIBUSB
+#ifdef BTSTACKA2DP_USE_LIBUSB
 #include <btstack/hci_transport_usb.h>
 #endif
 
@@ -44,7 +44,7 @@ class PortPosix {
     s().transport_config = config;
   }
 
-#ifdef BLUEA2DP_USE_LIBUSB
+#ifdef BTSTACKA2DP_USE_LIBUSB
   /// Select the USB Bluetooth controller by bus and port path (see `lsusb -t`), e.g.
   /// bus 1, port 2 -> set_usb_path(1, {2}). Without it the first controller is used,
   /// which may be your system's built-in Bluetooth. Call before start().
@@ -172,17 +172,17 @@ class PortPosix {
     btstack_run_loop_init(btstack_run_loop_posix_get_instance());
 
     const hci_transport_t* transport = st.transport;
-#ifdef BLUEA2DP_USE_LIBUSB
+#ifdef BTSTACKA2DP_USE_LIBUSB
     if (!transport) transport = hci_transport_usb_instance();
 #endif
     if (!transport) {
       fprintf(stderr,
-              "BlueA2DP: no HCI transport. Build with -DBLUEA2DP_USE_LIBUSB or "
+              "BTstackA2DP: no HCI transport. Build with -DBTSTACKA2DP_USE_LIBUSB or "
               "call PortPosix::set_transport()\n");
       signal_ready(false);
       return nullptr;
     }
-#ifdef BLUEA2DP_DEBUG
+#ifdef BTSTACKA2DP_DEBUG
     hci_dump_init(hci_dump_posix_stdout_get_instance());  // HCI packets and btstack log on stdout
 #endif
     hci_init(transport, st.transport_config);

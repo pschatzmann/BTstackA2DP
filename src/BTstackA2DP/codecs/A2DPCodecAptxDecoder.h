@@ -2,8 +2,8 @@
 //
 //   #include "AudioTools.h"
 //   #include "AudioTools/AudioCodecs/CodecAPTX.h"
-//   #include "BlueA2DP.h"
-//   #include "BlueA2DP/codecs/A2DPCodecAptxDecoder.h"
+//   #include "BTstackA2DP.h"
+//   #include "BTstackA2DP/codecs/A2DPCodecAptxDecoder.h"
 //
 //   audio_tools::APTXDecoder dec;
 //   blue_a2dp::A2DPCodecAptxDecoder<audio_tools::APTXDecoder> aptx(dec);

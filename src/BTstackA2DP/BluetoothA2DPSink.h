@@ -20,7 +20,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
   }
 
   /// Starts the Bluetooth stack and makes the device discoverable as 'name'.
-  bool start(const char* name = "BlueA2DP", bool auto_reconnect = true) {
+  bool start(const char* name = "BTstackA2DP", bool auto_reconnect = true) {
     set_name(name);
     set_auto_reconnect(auto_reconnect);
     return start_stack();
@@ -182,7 +182,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
   }
 
   void handle_a2dp(uint8_t* packet) {
-    BLUEA2DP_LOG("a2dp event 0x%02x", packet[2]);
+    BTSTACKA2DP_LOG("a2dp event 0x%02x", packet[2]);
     switch (packet[2]) {
       case A2DP_SUBEVENT_SIGNALING_MEDIA_CODEC_SBC_CONFIGURATION:
         reconfigure_ = a2dp_subevent_signaling_media_codec_sbc_configuration_get_reconfigure(packet);
@@ -222,7 +222,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
         if (!avrcp_cid_) {
           uint16_t cid = 0;
           uint8_t status = avrcp_connect(peer_, &cid);
-          BLUEA2DP_LOG("avrcp connect to %s: status 0x%02x", bd_addr_to_str(peer_), status);
+          BTSTACKA2DP_LOG("avrcp connect to %s: status 0x%02x", bd_addr_to_str(peer_), status);
         }
         break;
       case A2DP_SUBEVENT_SIGNALING_CONNECTION_ESTABLISHED:

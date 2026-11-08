@@ -1,11 +1,11 @@
-# BlueA2DP
+# BTstackA2DP
 
 Bluetooth Audio A2DP **sink** (Bluetooth speaker) and **source** (Bluetooth transmitter) with AVRCP for Arduino,
 built on the [BlueKitchen btstack](https://github.com/bluekitchen/btstack). The API follows
 [ESP32-A2DP](https://github.com/pschatzmann/ESP32-A2DP), so existing sketches port easily.
 
 ## Why this library?
-Bluetooth audio on Arduino is usually tied to one chip, one vendor stack and one codec. BlueA2DP
+Bluetooth audio on Arduino is usually tied to one chip, one vendor stack and one codec. BTstackA2DP
 tries to fix that:
 
 * **Lean:** the library itself is header-only C++ on top of one small C stack (btstack). Only SBC

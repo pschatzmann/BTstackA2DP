@@ -8,14 +8,14 @@
 #include "sdkconfig.h"
 
 #if !(defined(CONFIG_BT_CLASSIC_ENABLED) || defined(CONFIG_CLASSIC_BT_ENABLED))
-#error "BlueA2DP: A2DP needs Classic Bluetooth, which this ESP32 variant (or sdkconfig) does not provide. Use an original ESP32."
+#error "BTstackA2DP: A2DP needs Classic Bluetooth, which this ESP32 variant (or sdkconfig) does not provide. Use an original ESP32."
 #endif
 
 // Tell the Arduino core that Classic BT is used, so it does not release the
 // Bluetooth memory at boot (Arduino-ESP32 3.3+).
 #if __has_include("esp32-hal-alloc-bt-classic-mem.h")
 #include "esp32-hal-alloc-bt-classic-mem.h"
-#define BLUEA2DP_HAS_BT_MODE_API 1
+#define BTSTACKA2DP_HAS_BT_MODE_API 1
 #endif
 
 #include <stdio.h>
@@ -42,14 +42,14 @@
 #include <btstack/hci.h>
 #include <btstack/hci_transport.h>
 
-#ifndef BLUEA2DP_TASK_STACK_SIZE
-#define BLUEA2DP_TASK_STACK_SIZE 8192
+#ifndef BTSTACKA2DP_TASK_STACK_SIZE
+#define BTSTACKA2DP_TASK_STACK_SIZE 8192
 #endif
-#ifndef BLUEA2DP_TASK_PRIORITY
-#define BLUEA2DP_TASK_PRIORITY 5
+#ifndef BTSTACKA2DP_TASK_PRIORITY
+#define BTSTACKA2DP_TASK_PRIORITY 5
 #endif
-#ifndef BLUEA2DP_TASK_CORE
-#define BLUEA2DP_TASK_CORE 0
+#ifndef BTSTACKA2DP_TASK_CORE
+#define BTSTACKA2DP_TASK_CORE 0
 #endif
 
 // btstack's FreeRTOS run loop needs a millisecond clock (weak: can be overridden)
@@ -79,9 +79,9 @@ class PortESP32 {
     st.ok = false;
     st.ready = xSemaphoreCreateBinary();
     if (!st.ready) return false;
-    BaseType_t rc = xTaskCreatePinnedToCore(&task_main, "btstack", BLUEA2DP_TASK_STACK_SIZE,
-                                            nullptr, BLUEA2DP_TASK_PRIORITY, &st.task,
-                                            BLUEA2DP_TASK_CORE);
+    BaseType_t rc = xTaskCreatePinnedToCore(&task_main, "btstack", BTSTACKA2DP_TASK_STACK_SIZE,
+                                            nullptr, BTSTACKA2DP_TASK_PRIORITY, &st.task,
+                                            BTSTACKA2DP_TASK_CORE);
     if (rc != pdPASS) {
       st.task = nullptr;
       return false;
@@ -257,7 +257,7 @@ class PortESP32 {
   }
 
   static bool controller_start() {
-#ifdef BLUEA2DP_HAS_BT_MODE_API
+#ifdef BTSTACKA2DP_HAS_BT_MODE_API
     return btStartMode(BT_MODE_CLASSIC_BT);
 #else
     if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED) return true;

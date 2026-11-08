@@ -3,7 +3,7 @@
  * Change SPEAKER_NAME to the name of your device (put it into pairing mode).
  */
 #include <math.h>
-#include "BlueA2DP.h"
+#include "BTstackA2DP.h"
 
 #define SPEAKER_NAME "MySpeaker"
 

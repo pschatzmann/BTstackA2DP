@@ -1,11 +1,11 @@
 /**
  * A2DP sink which just counts the received PCM data and prints the AVRCP metadata.
- * Pair your phone with "BlueA2DP" and start playing music.
+ * Pair your phone with "BTstackA2DP" and start playing music.
  *
  * The stream reader receives interleaved 16 bit PCM samples. Replace it with code
  * which writes to an I2S DAC (see sink-i2s).
  */
-#include "BlueA2DP.h"
+#include "BTstackA2DP.h"
 
 BluetoothA2DPSink a2dp_sink;
 volatile uint32_t received_bytes = 0;
@@ -33,7 +33,7 @@ void setup() {
   a2dp_sink.set_avrc_metadata_callback(on_metadata);
   a2dp_sink.set_on_connection_state_changed(on_connection);
   a2dp_sink.set_audio_info_callback(on_audio_info);
-  if (!a2dp_sink.start("BlueA2DP")) {
+  if (!a2dp_sink.start("BTstackA2DP")) {
     Serial.println("Bluetooth start failed");
   }
 }

@@ -4,7 +4,7 @@
 * Arduino-ESP32 3.3+ and a chip with Classic Bluetooth (the build checks `CONFIG_BT_CLASSIC_ENABLED`;
   the original ESP32 has it, S2/S3/C3/C6/H2/P4 do not).
 * Uses the internal controller through VHCI, Bluedroid is not involved. The btstack task can be
-  tuned with `BLUEA2DP_TASK_CORE`, `BLUEA2DP_TASK_STACK_SIZE` and `BLUEA2DP_TASK_PRIORITY`.
+  tuned with `BTSTACKA2DP_TASK_CORE`, `BTSTACKA2DP_TASK_STACK_SIZE` and `BTSTACKA2DP_TASK_PRIORITY`.
 * Pairing information is stored in NVS.
 * ESP32-S31: untested. It works only if the chip has Classic BT and the Arduino core exposes it;
   it is not in Arduino-ESP32 3.3.12.
@@ -49,7 +49,7 @@ Messages go to stderr, so stdout can be piped.
 * **Dongles:** use a genuine one (CSR8510 original, Realtek, Intel). A cheap CSR8510 clone
   (`0a12:0001` reporting HCI 5.1 / manufacturer 0x08E7) hung in our tests: its controller returned
   "Memory Capacity Exceeded" with no command credits, after which it needed a replug.
-* **Debugging:** build with `-DBLUEA2DP_DEBUG` (`cmake -DCMAKE_CXX_FLAGS=-DBLUEA2DP_DEBUG ..`) to
+* **Debugging:** build with `-DBTSTACKA2DP_DEBUG` (`cmake -DCMAKE_CXX_FLAGS=-DBTSTACKA2DP_DEBUG ..`) to
   get an HCI trace and the connection log on stdout. On a microcontroller this prints to the
   serial port: use it only to find problems, as the logging slows the Bluetooth task down.
 
@@ -59,11 +59,11 @@ Messages go to stderr, so stdout can be piped.
 (for example the Arduino libraries you already have), as the audio-tools repository alone is
 almost 1 GB:
 ```
-cmake -S . -B build -DBLUEA2DP_AUDIO_TOOLS=ON \
-  -DBLUEA2DP_AUDIO_TOOLS_DIR=~/Arduino/libraries/arduino-audio-tools \
-  -DBLUEA2DP_HELIX_DIR=~/Arduino/libraries/codec-helix \
-  -DBLUEA2DP_EMULATOR_DIR=/path/to/Arduino-Emulator \
-  -DBLUEA2DP_MINIAUDIO_DIR=/path/to/folder-with-miniaudio.h
+cmake -S . -B build -DBTSTACKA2DP_AUDIO_TOOLS=ON \
+  -DBTSTACKA2DP_AUDIO_TOOLS_DIR=~/Arduino/libraries/arduino-audio-tools \
+  -DBTSTACKA2DP_HELIX_DIR=~/Arduino/libraries/codec-helix \
+  -DBTSTACKA2DP_EMULATOR_DIR=/path/to/Arduino-Emulator \
+  -DBTSTACKA2DP_MINIAUDIO_DIR=/path/to/folder-with-miniaudio.h
 ```
 (`miniaudio.h` is also in `arduino-audio-tools/tests-cmake/miniaudio/`.) Any of the four that you
 leave out is downloaded from GitHub (shallow clone of the `main` branch, several minutes for
@@ -80,7 +80,7 @@ stdout output; all self tests. **Not yet tested with a real Bluetooth link:** `s
 `sink --play` and `source --file` (they only connect the tested parts to the stack).
 
 ## Other microcontrollers
-Add a port in `src/BlueA2DP/ports/`; `Port.h` documents the four functions it has to provide
+Add a port in `src/BTstackA2DP/ports/`; `Port.h` documents the four functions it has to provide
 (`start`, `stop`, `post`, `lock/unlock`).
 
 ## Updating btstack

@@ -1,4 +1,4 @@
-// Common types for BlueA2DP. The names intentionally mirror the ESP32-A2DP library
+// Common types for BTstackA2DP. The names intentionally mirror the ESP32-A2DP library
 // (https://github.com/pschatzmann/ESP32-A2DP) so that existing sketches port easily.
 #pragma once
 

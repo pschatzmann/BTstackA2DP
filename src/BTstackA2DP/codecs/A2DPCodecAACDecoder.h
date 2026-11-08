@@ -2,8 +2,8 @@
 //
 //   #include "AudioTools.h"
 //   #include "AudioTools/AudioCodecs/CodecAACHelix.h"
-//   #include "BlueA2DP.h"
-//   #include "BlueA2DP/codecs/A2DPCodecAACDecoder.h"
+//   #include "BTstackA2DP.h"
+//   #include "BTstackA2DP/codecs/A2DPCodecAACDecoder.h"
 //
 //   audio_tools::AACDecoderHelix helix;
 //   blue_a2dp::A2DPCodecAACDecoder<audio_tools::AACDecoderHelix> aac(helix);

@@ -12,5 +12,5 @@
 #elif defined(__linux__) || defined(__APPLE__)
 #include "PortPosix.h"
 #else
-#error "BlueA2DP: no port for this platform yet (supported: ESP32, RP2040/RP2350, Linux, macOS)."
+#error "BTstackA2DP: no port for this platform yet (supported: ESP32, RP2040/RP2350, Linux, macOS)."
 #endif

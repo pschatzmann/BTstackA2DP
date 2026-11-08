@@ -5,8 +5,8 @@
 #include <math.h>
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecAPTX.h"
-#include "BlueA2DP.h"
-#include "BlueA2DP/codecs/A2DPCodecAptxEncoder.h"
+#include "BTstackA2DP.h"
+#include "BTstackA2DP/codecs/A2DPCodecAptxEncoder.h"
 
 #define SPEAKER_NAME "MySpeaker"
 

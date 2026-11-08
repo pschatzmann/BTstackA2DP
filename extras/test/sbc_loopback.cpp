@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "BlueA2DP.h"  // pulls in btstack_config.h first
+#include "BTstackA2DP.h"  // pulls in btstack_config.h first
 #include <vector>
 #include <btstack/classic/btstack_sbc_bluedroid.h>
 

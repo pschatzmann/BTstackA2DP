@@ -55,7 +55,7 @@ Setup: `sink-serial` flashed, PC (PipeWire) as source. Flash at 115200 baud (921
 | ID | Test | Status | Date | Notes |
 |---|---|---|---|---|
 | E1 | Controller starts through VHCI, `start()` returns true, no crash | PASS | 2026-11-08 | |
-| E2 | Device is discoverable ("BlueA2DP") and shows the right address | PASS | 2026-11-08 | |
+| E2 | Device is discoverable ("BTstackA2DP") and shows the right address | PASS | 2026-11-08 | |
 | E3 | Pairing and A2DP connection from a PC | PASS | 2026-11-08 | bonded earlier through BlueZ |
 | E4 | SBC audio is received and decoded; 90 s sine gap test on the ESP32 itself | PASS | 2026-11-08 | exactly 48 000 samples/s, 0 discontinuities, heap stable (190 492 bytes); PC (PipeWire, SBC-XQ) as source |
 | E5 | Sound quality: correct pitch, no dropouts (needs a DAC, `sink-i2s`) | TODO | | no DAC connected yet |
@@ -63,7 +63,7 @@ Setup: `sink-serial` flashed, PC (PipeWire) as source. Flash at 115200 baud (921
 | E7 | Pairing survives a reboot (NVS) | PASS | 2026-11-08 | reset, PC reconnects without pairing again, audio flows (BlueZ prints a harmless `br-connection-busy`) |
 | E8 | Auto reconnect after the remote drops the link | PASS | 2026-11-08 | found a bug: a failed attempt was never retried. Fixed (retry with backoff 2, 4, 8, 16, 32, 60 s); third attempt succeeded after 14 s |
 | E9 | Pause and resume on the phone (stream suspend, restart) | PASS | 2026-11-08 | audio-state 0 at stream end, 2 at restart, stream resumes with correct format |
-| E10 | Track change gives metadata (`set_avrc_metadata_callback`) | PASS | 2026-11-08 | ESP32 source sends title and artist (`source.set_now_playing`); the ESP32 sink receives "BlueA2DP test track" and "tester" on every AVRCP connection. Earlier empty strings were the source not providing track information (R17) |
+| E10 | Track change gives metadata (`set_avrc_metadata_callback`) | PASS | 2026-11-08 | ESP32 source sends title and artist (`source.set_now_playing`); the ESP32 sink receives "BTstackA2DP test track" and "tester" on every AVRCP connection. Earlier empty strings were the source not providing track information (R17) |
 | E11 | Volume from the phone reaches `set_on_volume_change`; `set_volume` reaches the phone | PASS | 2026-11-08 | ESP32 pair, both directions: sink to source 100, 30; source to sink 50 (events logged on both sides). The phone / speaker directions still to check with real devices |
 | E12 | `play`, `pause`, `next`, `previous` control the phone | PASS | 2026-11-08 | ESP32 sink to ESP32 source: pause and play change the source's audio state (suspended / started); next and previous arrive as AVRCP FORWARD (0x4B) and BACKWARD (0x4C), each press and release. Remaining check: a real phone or speaker |
 | E13 | Long run: 1 hour continuous without dropouts or heap loss | PARTIAL | 2026-11-08 | 11:37 to ~11:45 continuous stream from `rhythmbox` on the PC (built-in link), audio-state stayed 2, byte counter rising steadily, no disconnect. Stopped early to reflash the ESP32 as source (S-tests). 1 hour not reached |
@@ -137,7 +137,7 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | R18 | AVRCP controls from the sink were dropped (E12): no outgoing AVRCP connection. **Fixed**: the sink opens AVRCP after the A2DP stream is up; play and pause verified on ESP32 pair | next/previous still to check with a source that handles them |
 | R19 | ESP32 as source (`source-sine`) to the PC's built-in controller (`air-mini #1`, the sink role advertised): the ESP32 never reports a connection. BlueZ logs `avdtp_connect_cb ... Host is down (112)` and `Unable to select SEP`, so the PC's side tries to connect out to the ESP32 as sink and fails. The ESP32 example only prints connected / not connected, so its connecting progress is not visible | open: check the ESP32 with the debug build, or pair the PC from its side first |
 | R16 (start-up part fixed: skip `libusb_set_configuration` when already configured; the dongle can start and shut down cleanly now) | The libusb transport resets the dongle at start (`libusb_reset_device`); with this CSR clone the device then vanishes from the bus, every run. Opening a dongle that is not on the bus (or is half-initialised) blocks instead of failing; the tool needs a timeout around controller start. Also: after each run the libusb transport leaves the dongle without kernel driver (`Driver=[none]`), so the next run usually fails until a replug (R10 patch not effective yet) | timeout in the start path; verify the reattach patch on close |
-| R11 | Debug logging at 115200 baud stalls the Bluetooth task: the first debug build made the stream break up badly. Log lines must never be printed per packet | fixed for the per-packet event; keep `BLUEA2DP_DEBUG` off in production |
+| R11 | Debug logging at 115200 baud stalls the Bluetooth task: the first debug build made the stream break up badly. Log lines must never be printed per packet | fixed for the per-packet event; keep `BTSTACKA2DP_DEBUG` off in production |
 | R8 | A2DP volume: absolute volume only, no local gain curve | E11 |
 
 ## 6. Log
@@ -151,7 +151,7 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | 2026-11-08 | ESP32 source, first debug build, listened to on the PC | audio breaks up badly: the per-packet debug log over serial stalled the Bluetooth task (R11) |
 | 2026-11-08 | ESP32 source without debug output, recorded on the PC with `parec`, analyzed with `gaps.py` | clean: 440.0 Hz, 0 discontinuities in 23.3 s (S1, S2, S8) |
 | 2026-11-08 | Desktop sink on the CSR dongle with ESP32 source and with the PC as source | no connection completes (D2, R9); afterwards the dongle is no longer on the USB bus |
-| 2026-11-08 | Desktop sink with HCI trace (`BLUEA2DP_DEBUG`) after replug | controller hangs after the first encryption command (0x07, 0 credits); next run fails at `HCI_Reset`; dongle vanishes from the bus (R9, R10) |
+| 2026-11-08 | Desktop sink with HCI trace (`BTSTACKA2DP_DEBUG`) after replug | controller hangs after the first encryption command (0x07, 0 credits); next run fails at `HCI_Reset`; dongle vanishes from the bus (R9, R10) |
 | 2026-11-08 | ESP32 source recorded again on the PC | breakup: 587 discontinuities / 291 silent runs in 38 s (R12) |
 | 2026-11-08 | Source stops scanning once connected, reflashed | 8 discontinuities / 4 silent runs in 38 s (S8) |
 | 2026-11-08 | Self-checking ESP32 sink (sine gap test) with the PC as source | E4, E6, E9, E11 pass |
@@ -175,11 +175,11 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | 2026-11-08 | D4/D5 after replug: tool starts, scans, reports "connecting", ESP32 logs no connection at all. Debug retry: driver detached at start, controller DOWN with zero address (init failure). Each run ends with the dongle needing a replug | D4/D5 open: dongle unreliable, consider a genuine CSR8510 / Intel / Realtek adapter |
 | 2026-11-08 | No-dongle tests: E10 and E12 run with rhythmbox as MPRIS player on the PC; both FAIL (R17, R18). Built-in controller used for the link | |
 | 2026-11-08 | ESP32 source (`source-sine`) to the PC's built-in controller as speaker: not connected after 6 min (R19). The PC's dongle controller had the wrong name for the test, fixed by using `air-mini #1` | S-series still open |
-| 2026-11-08 | **ESP32 source to Pico 2 W sink**: the ESP32 (`source-sine`, target `BlueA2DP`) streams to the Pico 2 W (`sink-serial`, `rp2040:rp2040:rpipico2w`, ipbtstack). The Pico receives audio steadily at about 176 kB/s (44.1 kHz stereo 16 bit). Connection succeeded, the PC is not involved. Gap check on the audio still to do | S1/S2 likely pass for the Pico path; gap test pending |
+| 2026-11-08 | **ESP32 source to Pico 2 W sink**: the ESP32 (`source-sine`, target `BTstackA2DP`) streams to the Pico 2 W (`sink-serial`, `rp2040:rp2040:rpipico2w`, ipbtstack). The Pico receives audio steadily at about 176 kB/s (44.1 kHz stereo 16 bit). Connection succeeded, the PC is not involved. Gap check on the audio still to do | S1/S2 likely pass for the Pico path; gap test pending |
 | 2026-11-08 | AVRCP fix tested ESP32 to ESP32 (no desktop): play/pause reach the source (suspended/started). The PC had been reconnecting to the source ESP32 and playing audio on its speakers; the ESP32 was removed from the PC again | E12 partial |
 | 2026-11-08 | Source: `set_on_avrcp_operation` (next/previous visible to the application) and `set_now_playing` (title, artist, album over AVRCP). First version of `set_now_playing` crashed the source (posted to the run loop before start, assert in xQueueGenericSend); fixed. ESP32 pair: E10 and E12 PASS | |
 | 2026-11-08 | Volume between the two ESP32s in both directions: PASS. WiFi access point on the sink next to the A2DP link: streaming and connection stable for several minutes (no audio-state drops, no new discontinuities after the reconnect); no WiFi client connected yet, so traffic on the AP is not tested | E14 partial |
-| 2026-11-08 | WiFi access point `BlueA2DP-ap` (WPA2, channel 1) confirmed in a WiFi scan from the PC. The sink's Bluetooth name is `ESP-SINK`, not the WiFi name. No WiFi client connected yet | E14 partial |
+| 2026-11-08 | WiFi access point `BTstackA2DP-ap` (WPA2, channel 1) confirmed in a WiFi scan from the PC. The sink's Bluetooth name is `ESP-SINK`, not the WiFi name. No WiFi client connected yet | E14 partial |
 | 2026-11-08 | Source-side status updated: S4 PASS (ESP32 pair volume), S7 PARTIAL (about 25 min continuous, one reset-triggered reconnect) | |
 | 2026-11-08 | **Working mode changed**: run many tests quickly, only identify problems, fix later | |
 | 2026-11-08 | `gaps.py` validated on synthetic data | detects silence, dropped and repeated samples; no false alarm on clean or noisy tones |

@@ -8,8 +8,8 @@
 #include "AudioTools.h"
 #include "AudioTools/Concurrency/LockFree.h"
 #include "AudioTools/AudioCodecs/CodecSBC.h"
-#include "BlueA2DP.h"
-#include "BlueA2DP/codecs/A2DPCodecSBCDecoder.h"
+#include "BTstackA2DP.h"
+#include "BTstackA2DP/codecs/A2DPCodecSBCDecoder.h"
 
 BluetoothA2DPSink a2dp_sink;
 SBCDecoder sbc_decoder;
@@ -43,7 +43,7 @@ void setup() {
   a2dp_sink.set_sbc_codec(&sbc);  // before start()
   a2dp_sink.set_audio_info_callback(on_info);
   a2dp_sink.set_stream_reader(on_audio);
-  a2dp_sink.start("BlueA2DP Speaker");
+  a2dp_sink.start("BTstackA2DP Speaker");
 }
 
 void loop() {

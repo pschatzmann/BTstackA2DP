@@ -1,4 +1,4 @@
-#if !defined(ARDUINO_ARCH_RP2040) || defined(BLUEA2DP_FORCE_VENDORED_BTSTACK) /* CORE_COND_GUARD */
+#if !defined(ARDUINO_ARCH_RP2040) || defined(BTSTACKA2DP_FORCE_VENDORED_BTSTACK) /* CORE_COND_GUARD */
 //=============================== RIJNDAEL.C   ===============================
 // from http://www.efgh.com/software/rijndael.htm,
 // License: Public Domain, 

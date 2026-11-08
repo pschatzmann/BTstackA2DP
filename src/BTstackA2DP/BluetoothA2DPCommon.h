@@ -37,21 +37,21 @@
 #include <btstack/hci.h>
 #include <btstack/l2cap.h>
 
-// Define BLUEA2DP_DEBUG to get a log of the connection handling on stdout / Serial
-#ifdef BLUEA2DP_DEBUG
-#define BLUEA2DP_LOG(...)         \
+// Define BTSTACKA2DP_DEBUG to get a log of the connection handling on stdout / Serial
+#ifdef BTSTACKA2DP_DEBUG
+#define BTSTACKA2DP_LOG(...)         \
   do {                            \
-    printf("[BlueA2DP] " __VA_ARGS__); \
+    printf("[BTstackA2DP] " __VA_ARGS__); \
     printf("\n");                 \
   } while (0)
 #else
-#define BLUEA2DP_LOG(...) \
+#define BTSTACKA2DP_LOG(...) \
   do {                    \
   } while (0)
 #endif
 
-#ifndef BLUEA2DP_VOLUME_STEP
-#define BLUEA2DP_VOLUME_STEP 8
+#ifndef BTSTACKA2DP_VOLUME_STEP
+#define BTSTACKA2DP_VOLUME_STEP 8
 #endif
 
 namespace blue_a2dp {
@@ -60,7 +60,7 @@ class BluetoothA2DPCommon {
  public:
   BluetoothA2DPCommon() {
     memset(name_, 0, sizeof(name_));
-    strncpy(name_, "BlueA2DP", sizeof(name_) - 1);
+    strncpy(name_, "BTstackA2DP", sizeof(name_) - 1);
     memset(peer_, 0, sizeof(peer_));
     memset(pin_, 0, sizeof(pin_));
     strcpy(pin_, "0000");
@@ -147,8 +147,8 @@ class BluetoothA2DPCommon {
   virtual void on_avrcp_connected() {}
   virtual void on_avrcp_operation(avrcp_operation_id_t op, bool pressed) {
     if (!pressed) return;
-    if (op == AVRCP_OPERATION_ID_VOLUME_UP) change_volume(BLUEA2DP_VOLUME_STEP);
-    if (op == AVRCP_OPERATION_ID_VOLUME_DOWN) change_volume(-BLUEA2DP_VOLUME_STEP);
+    if (op == AVRCP_OPERATION_ID_VOLUME_UP) change_volume(BTSTACKA2DP_VOLUME_STEP);
+    if (op == AVRCP_OPERATION_ID_VOLUME_DOWN) change_volume(-BTSTACKA2DP_VOLUME_STEP);
   }
   virtual void do_play() {
     if (avrcp_cid_) avrcp_controller_play(avrcp_cid_);
@@ -213,7 +213,7 @@ class BluetoothA2DPCommon {
       if (delay_ms > 60000) delay_ms = 60000;
       reconnect_attempts_++;
     }
-    BLUEA2DP_LOG("reconnect in %u ms", (unsigned)delay_ms);
+    BTSTACKA2DP_LOG("reconnect in %u ms", (unsigned)delay_ms);
     btstack_run_loop_remove_timer(&reconnect_timer_);
     btstack_run_loop_set_timer_handler(&reconnect_timer_, &reconnect_timer_cb);
     btstack_run_loop_set_timer(&reconnect_timer_, delay_ms);
@@ -351,7 +351,7 @@ class BluetoothA2DPCommon {
     bd_addr_t addr;
     switch (hci_event_packet_get_type(packet)) {
       case BTSTACK_EVENT_STATE:
-        BLUEA2DP_LOG("hci state %d", btstack_event_state_get_state(packet));
+        BTSTACKA2DP_LOG("hci state %d", btstack_event_state_get_state(packet));
         ready_ = btstack_event_state_get_state(packet) == HCI_STATE_WORKING;
         if (ready_) on_hci_working();
         break;
@@ -383,7 +383,7 @@ class BluetoothA2DPCommon {
       case AVRCP_SUBEVENT_CONNECTION_ESTABLISHED:
         if (avrcp_subevent_connection_established_get_status(packet) != ERROR_CODE_SUCCESS) return;
         self->avrcp_cid_ = avrcp_subevent_connection_established_get_avrcp_cid(packet);
-        BLUEA2DP_LOG("avrcp connected, cid 0x%04x", self->avrcp_cid_);
+        BTSTACKA2DP_LOG("avrcp connected, cid 0x%04x", self->avrcp_cid_);
         self->on_avrcp_connected();
         break;
       case AVRCP_SUBEVENT_CONNECTION_RELEASED:

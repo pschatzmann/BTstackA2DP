@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "BlueA2DP.h"
+#include "BTstackA2DP.h"
 #include "../test/tests.h"
 #include "at_io.h"
 #include "pcm.h"
@@ -40,7 +40,7 @@ static void usage(FILE* out) {
           "options for sink and source:\n"
           "  --usb BUS:PORT[.PORT...]  USB Bluetooth dongle, see `lsusb -t` (recommended: otherwise\n"
           "                            the first controller, maybe a built-in one, is used)\n"
-          "  --name NAME               name of this device (sink default: BlueA2DP-desktop)\n"
+          "  --name NAME               name of this device (sink default: BTstackA2DP-desktop)\n"
           "  --bonding FILE            file for the pairing data (default: ~/.blue_a2dp_bonding.tlv)\n"
           "  --no-bonding              keep the pairing data in RAM only\n"
           "\n"
@@ -57,7 +57,7 @@ static void usage(FILE* out) {
           "  --tone HZ                 frequency of the test tone (default 440)\n"
           "\n"
           "audio-tools build: %s\n",
-          cli::audio_tools_available() ? "yes" : "no (cmake -DBLUEA2DP_AUDIO_TOOLS=ON, see docs/build.md)");
+          cli::audio_tools_available() ? "yes" : "no (cmake -DBTSTACKA2DP_AUDIO_TOOLS=ON, see docs/build.md)");
 }
 
 // ---- options ------------------------------------------------------------------------
@@ -237,7 +237,7 @@ static int run_sink(const Options& o) {
   g_out.play = o.play;
   g_out.to_stdout = !o.wav && !o.play;
   if (o.play && !cli::audio_tools_available()) {
-    fprintf(stderr, "--play needs the audio-tools build: cmake -DBLUEA2DP_AUDIO_TOOLS=ON (see docs/build.md)\n");
+    fprintf(stderr, "--play needs the audio-tools build: cmake -DBTSTACKA2DP_AUDIO_TOOLS=ON (see docs/build.md)\n");
     return 2;
   }
   if (g_out.to_stdout && isatty(STDOUT_FILENO)) {
@@ -254,7 +254,7 @@ static int run_sink(const Options& o) {
   sink.set_avrc_metadata_callback(on_meta);
   sink.set_on_connection_state_changed(on_conn);
   sink.set_audio_info_callback(on_info);
-  if (!sink.start(o.name ? o.name : "BlueA2DP-desktop")) {
+  if (!sink.start(o.name ? o.name : "BTstackA2DP-desktop")) {
     fprintf(stderr, "start failed (no Bluetooth dongle accessible? see --usb and docs/build.md)\n");
     return 1;
   }
@@ -366,7 +366,7 @@ static int run_play(const Options& o) {
   g_out.play = o.play;
   g_out.to_stdout = !o.wav && !o.play;
   if (o.play && !cli::audio_tools_available()) {
-    fprintf(stderr, "--play needs the audio-tools build: cmake -DBLUEA2DP_AUDIO_TOOLS=ON (see docs/build.md)\n");
+    fprintf(stderr, "--play needs the audio-tools build: cmake -DBTSTACKA2DP_AUDIO_TOOLS=ON (see docs/build.md)\n");
     return 2;
   }
   if (g_out.to_stdout && isatty(STDOUT_FILENO)) {

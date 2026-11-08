@@ -8,8 +8,8 @@
 #include "AudioTools.h"
 #include "AudioTools/Concurrency/LockFree.h"
 #include "AudioTools/AudioCodecs/CodecMP3Helix.h"
-#include "BlueA2DP.h"
-#include "BlueA2DP/codecs/A2DPCodecMP3Decoder.h"
+#include "BTstackA2DP.h"
+#include "BTstackA2DP/codecs/A2DPCodecMP3Decoder.h"
 
 BluetoothA2DPSink a2dp_sink;
 // MP3 decoding with libhelix (codec-helix). The phone will use MP3 when it supports it
@@ -45,7 +45,7 @@ void setup() {
   a2dp_sink.add_codec(&mp3);  // before start()
   a2dp_sink.set_audio_info_callback(on_info);
   a2dp_sink.set_stream_reader(on_audio);
-  a2dp_sink.start("BlueA2DP Speaker");
+  a2dp_sink.start("BTstackA2DP Speaker");
 }
 
 void loop() {

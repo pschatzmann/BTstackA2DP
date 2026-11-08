@@ -2,8 +2,8 @@
 //
 //   #include "AudioTools.h"
 //   #include "AudioTools/AudioCodecs/CodecAACFDK.h"
-//   #include "BlueA2DP.h"
-//   #include "BlueA2DP/codecs/A2DPCodecAACEncoder.h"
+//   #include "BTstackA2DP.h"
+//   #include "BTstackA2DP/codecs/A2DPCodecAACEncoder.h"
 //
 //   audio_tools::AACEncoderFDK fdk;
 //   blue_a2dp::A2DPCodecAACEncoder<audio_tools::AACEncoderFDK> aac(fdk, 192000);

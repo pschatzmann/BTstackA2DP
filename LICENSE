@@ -1,7 +1,7 @@
-BlueA2DP licensing
+BTstackA2DP licensing
 ==================
 
-1. Our code: src/BlueA2DP.h, src/BlueA2DP/**, src/btstack_config.h, examples/**,
+1. Our code: src/BTstackA2DP.h, src/BTstackA2DP/**, src/btstack_config.h, examples/**,
    extras/test/**, extras/scripts/** and CMakeLists.txt are released under the MIT
    License (Copyright (c) Phil Schatzmann).
 

@@ -3,7 +3,7 @@
 Receives audio from a phone or PC, decodes it and hands 16 bit PCM to your code.
 
 ```cpp
-#include "BlueA2DP.h"
+#include "BTstackA2DP.h"
 BluetoothA2DPSink sink;
 void on_audio(const uint8_t* pcm, uint32_t len) { /* 16 bit interleaved PCM */ }
 void setup() { sink.set_stream_reader(on_audio); sink.start("My Speaker"); }

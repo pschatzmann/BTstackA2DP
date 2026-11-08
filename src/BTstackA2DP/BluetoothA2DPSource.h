@@ -171,7 +171,7 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
   void do_connect_to_peer() override {
     if (!have_peer_ || connection_state_ != ConnectionState::Disconnected) return;
     uint8_t status = a2dp_source_establish_stream(peer_, &a2dp_cid_);
-    BLUEA2DP_LOG("connect to %s: status 0x%02x", bd_addr_to_str(peer_), status);
+    BTSTACKA2DP_LOG("connect to %s: status 0x%02x", bd_addr_to_str(peer_), status);
     if (status == ERROR_CODE_SUCCESS) set_connection_state(ConnectionState::Connecting);
   }
   void do_disconnect_peer() override {
@@ -330,7 +330,7 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
     // not for the "can send" event: it comes for every media packet and logging it (e.g. over a
     // slow serial line) would stall the Bluetooth task
     if (packet[2] != A2DP_SUBEVENT_STREAMING_CAN_SEND_MEDIA_PACKET_NOW)
-      BLUEA2DP_LOG("a2dp event 0x%02x", packet[2]);
+      BTSTACKA2DP_LOG("a2dp event 0x%02x", packet[2]);
     switch (packet[2]) {
       case A2DP_SUBEVENT_SIGNALING_CONNECTION_ESTABLISHED:
         if (a2dp_subevent_signaling_connection_established_get_status(packet) != ERROR_CODE_SUCCESS) {

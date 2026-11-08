@@ -1,4 +1,4 @@
-#if !defined(ARDUINO_ARCH_RP2040) || defined(BLUEA2DP_FORCE_VENDORED_BTSTACK) /* CORE_COND_GUARD */
+#if !defined(ARDUINO_ARCH_RP2040) || defined(BTSTACKA2DP_FORCE_VENDORED_BTSTACK) /* CORE_COND_GUARD */
 /*
  * Copyright (C) 2017 BlueKitchen GmbH
  *

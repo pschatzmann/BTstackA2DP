@@ -1,7 +1,7 @@
 // Hardware free test of the LATM -> ADTS conversion used by the A2DP AAC codec.
 #include <stdio.h>
 #include <string.h>
-#include "BlueA2DP/codecs/AacUtil.h"
+#include "BTstackA2DP/codecs/AacUtil.h"
 using namespace blue_a2dp::aac;
 
 static int fails = 0;

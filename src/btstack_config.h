@@ -1,11 +1,11 @@
-// btstack configuration for BlueA2DP: Classic Bluetooth, A2DP (SBC) + AVRCP only.
+// btstack configuration for BTstackA2DP: Classic Bluetooth, A2DP (SBC) + AVRCP only.
 //
 // RP2040: the arduino-pico core ships btstack together with its own
 // btstack_config.h, which must win. Everything else uses the configuration below.
-#ifndef BLUEA2DP_BTSTACK_CONFIG_H
-#define BLUEA2DP_BTSTACK_CONFIG_H
+#ifndef BTSTACKA2DP_BTSTACK_CONFIG_H
+#define BTSTACKA2DP_BTSTACK_CONFIG_H
 
-#if defined(ARDUINO_ARCH_RP2040) && !defined(BLUEA2DP_FORCE_VENDORED_BTSTACK)
+#if defined(ARDUINO_ARCH_RP2040) && !defined(BTSTACKA2DP_FORCE_VENDORED_BTSTACK)
 
 #include_next <btstack_config.h>
 
@@ -14,7 +14,7 @@
 // ---- features ---------------------------------------------------------------
 #define ENABLE_CLASSIC
 #define ENABLE_LOG_ERROR
-#ifdef BLUEA2DP_DEBUG
+#ifdef BTSTACKA2DP_DEBUG
 #define ENABLE_LOG_INFO  // protocol traces
 #endif
 #define ENABLE_SOFTWARE_AES128
@@ -55,4 +55,4 @@
 #endif
 
 #endif  // RP2040 vs. vendored
-#endif  // BLUEA2DP_BTSTACK_CONFIG_H
+#endif  // BTSTACKA2DP_BTSTACK_CONFIG_H

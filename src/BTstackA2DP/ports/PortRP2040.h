@@ -7,7 +7,7 @@
 #if defined(ARDUINO_ARCH_RP2040)
 
 #if !defined(ENABLE_CLASSIC)
-#error "BlueA2DP: enable Bluetooth in the Arduino IDE (Tools > IP/Bluetooth Stack) and select a Pico W / Pico 2 W board."
+#error "BTstackA2DP: enable Bluetooth in the Arduino IDE (Tools > IP/Bluetooth Stack) and select a Pico W / Pico 2 W board."
 #endif
 
 #include <Arduino.h>

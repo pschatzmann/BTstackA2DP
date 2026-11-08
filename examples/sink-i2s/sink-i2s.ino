@@ -7,7 +7,7 @@
  */
 #include "AudioTools.h"
 #include "AudioTools/Concurrency/LockFree.h"
-#include "BlueA2DP.h"
+#include "BTstackA2DP.h"
 
 BluetoothA2DPSink a2dp_sink;
 I2SStream i2s;
@@ -38,7 +38,7 @@ void setup() {
   queue.begin(50);  // start playing when the queue is 50% filled
   a2dp_sink.set_audio_info_callback(on_info);
   a2dp_sink.set_stream_reader(on_audio);
-  a2dp_sink.start("BlueA2DP Speaker");
+  a2dp_sink.start("BTstackA2DP Speaker");
 }
 
 void loop() {

@@ -1,6 +1,6 @@
 // Hardware free test of the aptX codec information helpers.
 #include <stdio.h>
-#include "BlueA2DP/codecs/AptxUtil.h"
+#include "BTstackA2DP/codecs/AptxUtil.h"
 using namespace blue_a2dp::aptx;
 static int fails = 0;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); fails++; } } while (0)

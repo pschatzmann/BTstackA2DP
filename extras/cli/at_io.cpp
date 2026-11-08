@@ -1,5 +1,5 @@
 // Optional audio-tools features of the command line tool (see at_io.h): playback with the
-// MiniAudioStream and MP3 / AAC decoding with libhelix. Compiled with -DBLUEA2DP_AUDIO_TOOLS=ON.
+// MiniAudioStream and MP3 / AAC decoding with libhelix. Compiled with -DBTSTACKA2DP_AUDIO_TOOLS=ON.
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecAACHelix.h"
 #include "AudioTools/AudioCodecs/CodecMP3Helix.h"

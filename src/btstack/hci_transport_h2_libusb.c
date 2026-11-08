@@ -1,4 +1,4 @@
-#if (defined(__linux__) || defined(__APPLE__)) && defined(BLUEA2DP_USE_LIBUSB)
+#if (defined(__linux__) || defined(__APPLE__)) && defined(BTSTACKA2DP_USE_LIBUSB)
 /*
  * Copyright (C) 2014 BlueKitchen GmbH
  *
@@ -853,7 +853,7 @@ static int prepare_device(libusb_device_handle * aHandle){
 #endif
 
     const int configuration = 1;
-    // BlueA2DP patch: skip when already configured (stalls after the driver detach)
+    // BTstackA2DP patch: skip when already configured (stalls after the driver detach)
     int current = 0;
     r = libusb_get_configuration(aHandle, &current);
     if (r == 0 && current == configuration) {
@@ -1337,7 +1337,7 @@ static int usb_close(void) {
             libusb_release_interface(handle, 1);
 #endif
 #if !defined(__APPLE__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__FreeBSD__)
-            libusb_attach_kernel_driver(handle, 0);  /* BlueA2DP patch: reattach the OS driver */
+            libusb_attach_kernel_driver(handle, 0);  /* BTstackA2DP patch: reattach the OS driver */
 #endif
             log_info("Libusb shutdown complete");
 
