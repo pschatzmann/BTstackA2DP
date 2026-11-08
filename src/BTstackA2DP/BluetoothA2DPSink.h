@@ -2,11 +2,47 @@
 // and hands 16 bit PCM to the application. API modelled after ESP32-A2DP.
 #pragma once
 
+#include <stddef.h>
+
+#include <utility>
+
 #include "A2DPCodec.h"
 #include "BluetoothA2DPCommon.h"
 #include <btstack/classic/btstack_sbc_bluedroid.h>
 
 namespace blue_a2dp {
+
+namespace detail {
+// Duck typing for BluetoothA2DPSink::set_output(): no dependency on Arduino or audio-tools
+template <class T>
+using enable_if_output_t = decltype(std::declval<T&>().write((const uint8_t*)nullptr, (size_t)0));
+
+template <class T>
+auto call_begin(T* o, int) -> decltype(o->begin(), bool()) {
+  o->begin();
+  return true;
+}
+template <class T>
+bool call_begin(T*, long) {
+  return true;  // no begin()
+}
+
+// audio-tools: audioInfo() / setAudioInfo(AudioInfo) with sample_rate, channels, bits_per_sample
+template <class T>
+auto call_set_audio_info(T* o, const AudioInfo& info, int)
+    -> decltype(o->setAudioInfo(o->audioInfo()), void()) {
+  auto ai = o->audioInfo();
+  if ((uint32_t)ai.sample_rate == info.sample_rate && ai.channels == info.channels &&
+      ai.bits_per_sample == info.bits_per_sample)
+    return;
+  ai.sample_rate = info.sample_rate;
+  ai.channels = info.channels;
+  ai.bits_per_sample = info.bits_per_sample;
+  o->setAudioInfo(ai);
+}
+template <class T>
+void call_set_audio_info(T*, const AudioInfo&, long) {}
+}  // namespace detail
 
 class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
  public:
@@ -19,10 +55,35 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
     memset(cfg_, 0, sizeof(cfg_));
   }
 
+  /// Writes the PCM data to 'out' (as in ESP32-A2DP: BluetoothA2DPSink a2dp_sink(i2s);).
+  /// See set_output().
+  template <class T, class = detail::enable_if_output_t<T>>
+  explicit BluetoothA2DPSink(T& out) : BluetoothA2DPSink() {
+    set_output(out);
+  }
+
+  /// Writes the decoded PCM data (16 bit stereo) to 'out': anything with
+  /// write(const uint8_t*, size_t), e.g. an Arduino Print or an audio-tools stream such as
+  /// I2SStream. If 'out' has begin() it is called by start(); if it has audioInfo() and
+  /// setAudioInfo() (audio-tools) it gets the sample rate of the stream. Like in ESP32-A2DP the
+  /// data is written from the Bluetooth task: a blocking write (I2S) paces the stream. For
+  /// heavy processing use set_stream_reader() with a queue instead (see examples/sink-i2s).
+  template <class T, class = detail::enable_if_output_t<T>>
+  void set_output(T& out) {
+    out_obj_ = &out;
+    out_write_ = &out_write_thunk<T>;
+    out_begin_ = &out_begin_thunk<T>;
+    out_info_ = &out_info_thunk<T>;
+  }
+
   /// Starts the Bluetooth stack and makes the device discoverable as 'name'.
   bool start(const char* name = "BTstackA2DP", bool auto_reconnect = true) {
     set_name(name);
     set_auto_reconnect(auto_reconnect);
+    if (out_obj_ && !out_begun_) {
+      out_begin_(out_obj_);
+      out_begun_ = true;
+    }
     return start_stack();
   }
 
@@ -163,6 +224,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
     if ((uint32_t)rate != info_.sample_rate || channels != info_.channels) {
       info_.sample_rate = rate;
       info_.channels = channels;
+      if (out_info_) out_info_(out_obj_, info_);
       if (audio_info_cb_) audio_info_cb_(info_, audio_info_obj_);
     }
     int samples = frames * channels;
@@ -170,6 +232,7 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
       int32_t gain = (volume_ * 32768) / 127;
       for (int i = 0; i < samples; i++) data[i] = (int16_t)((data[i] * gain) >> 15);
     }
+    if (out_write_) out_write_(out_obj_, (const uint8_t*)data, samples * sizeof(int16_t));
     if (reader_) reader_((const uint8_t*)data, samples * sizeof(int16_t));
     if (data_received_cb_) data_received_cb_();
   }
@@ -296,6 +359,28 @@ class BluetoothA2DPSink : public BluetoothA2DPCommon, public PcmOutput {
   AudioInfo info_;
   bool software_volume_ = true;
   StreamReaderCallback reader_ = nullptr;
+  // output object of set_output() (type erased)
+  void* out_obj_ = nullptr;
+  void (*out_write_)(void*, const uint8_t*, size_t) = nullptr;
+  bool (*out_begin_)(void*) = nullptr;
+  void (*out_info_)(void*, const AudioInfo&) = nullptr;
+  bool out_begun_ = false;
+
+  template <class T>
+  static void out_write_thunk(void* o, const uint8_t* data, size_t len) {
+    T* out = static_cast<T*>(o);
+    // a stream may accept less than offered (e.g. a full I2S buffer): keep writing
+    size_t done = 0;
+    for (int tries = 0; done < len && tries < 100; tries++) done += out->write(data + done, len - done);
+  }
+  template <class T>
+  static bool out_begin_thunk(void* o) {
+    return detail::call_begin(static_cast<T*>(o), 0);
+  }
+  template <class T>
+  static void out_info_thunk(void* o, const AudioInfo& info) {
+    detail::call_set_audio_info(static_cast<T*>(o), info, 0);
+  }
   DataReceivedCallback data_received_cb_ = nullptr;
   AudioInfoCallback audio_info_cb_ = nullptr;
   void* audio_info_obj_ = nullptr;

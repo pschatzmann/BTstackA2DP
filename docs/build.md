@@ -115,6 +115,12 @@ BlueCore module with the standard HCI firmware. Wiring:
   blue_a2dp::Port::set_uart(PIN_TX, PIN_RX, PIN_RTS, PIN_CTS, 921600);  // -1 = no flow control
   ```
 * btstack runs in an mbed thread (16 KB stack); the sketch does not need to call anything else.
+* `start()` waits until the module answers, at most 3 seconds, and returns false if it does not
+  (not connected, wrong pins or baud rate). Change the time with
+  `blue_a2dp::Port::set_startup_timeout(ms)` before `start()`.
+* `printf` output (debug log with `BTSTACKA2DP_DEBUG`, fault reports) goes to the USB `Serial`:
+  mbed would otherwise send it to D0/D1, the module's UART. A sketch can still pick another
+  stream with `REDIRECT_STDOUT_TO(...)`.
 * Pairing information is kept in RAM only: pairing is lost after a reset.
 * Other nRF52 cores (Adafruit, Seeed) are not supported yet: they have no RTOS for the btstack
   thread. Sketches built for the nRF52840 without a Bluetooth module will not start.

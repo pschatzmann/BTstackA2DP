@@ -29,6 +29,15 @@ class BluetoothA2DPSource : public BluetoothA2DPCommon {
     if (cb) frame_cb_ = cb;
     return start_scan(remote_name);
   }
+  /// Starts the stack and searches without a name (ESP32-A2DP): set_ssid_callback() decides
+  /// which device to connect to (return true); without a callback the first audio device
+  /// found is used.
+  bool start() { return start_scan(nullptr); }
+  /// As start(), with the audio data callback
+  bool start(FrameDataCallback cb) {
+    if (cb) frame_cb_ = cb;
+    return start_scan(nullptr);
+  }
   /// Same, but the data callback delivers raw bytes of 16 bit stereo PCM
   bool start_raw(const char* remote_name, RawDataCallback cb) {
     raw_cb_ = cb;

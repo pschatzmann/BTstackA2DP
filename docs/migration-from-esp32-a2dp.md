@@ -18,7 +18,7 @@ Status used below:
 |---|---|---|
 | Bluetooth stack | Bluedroid (ESP-IDF) | BlueKitchen btstack (vendored), Classic only |
 | Platforms | ESP32 (classic Bluetooth variant) | ESP32, RP2040 / RP2350 (Pico W), nRF52840 (Arduino Nano 33 BLE, with external HCI module), Linux and macOS (USB dongle), Raspberry Pi (onboard, Linux) |
-| Output | Audio-tools `Print` / `Stream` passed to the constructor | PCM callback (`set_stream_reader`) with a lock-free queue in the sketch |
+| Output | Audio-tools `Print` / `Stream` passed to the constructor | Same (`BluetoothA2DPSink a2dp_sink(i2s)` or `set_output()`), or a PCM callback (`set_stream_reader`) with a lock-free queue in the sketch |
 | Codecs | SBC and AAC decoders / encoders from audio-tools | SBC built into btstack; AAC, aptX, MP3 as plug-ins (`add_codec`) |
 | Audio-tools dependency | Required | Optional (only for the codec plug-ins and the `_i2s` / `_audiotools` examples) |
 | BLE | Can run next to A2DP (Bluedroid) | Not available (no BLE in the build) |
@@ -32,34 +32,34 @@ setup and in the output code, not in the logic.
 
 | ESP32-A2DP | BTstackA2DP | Notes |
 |---|---|---|
-| `BluetoothA2DPSink a2dp_sink(out);` (output stream in the constructor) | `BluetoothA2DPSink a2dp_sink;` + `set_stream_reader(cb)` | No stream constructor. See section 4.1 |
+| `BluetoothA2DPSink a2dp_sink(out);` (output stream in the constructor) | same, or `set_output(out)` | Any object with `write(const uint8_t*, size_t)`: Arduino `Print`, audio-tools streams. `begin()` is called by `start()`, `setAudioInfo()` when the rate is known. See section 4.1 |
 | `BluetoothA2DPSource a2dp_source;` | same | |
 | `a2dp_sink.start("MyMusic");` | `a2dp_sink.start("MyMusic");` | Second argument is `auto_reconnect` (default `true`) |
 | `a2dp_source.start("Speaker");` | `a2dp_source.start("Speaker", get_audio);` | The frame callback is passed to `start()` or set with `set_data_callback_in_frames()` |
-| `a2dp_source.start();` (scan, choose in SSID callback) | not available | `start()` needs a name. See P1-4 |
+| `a2dp_source.start();` (scan, choose in SSID callback) | same, also `start(get_audio)` | Without an SSID callback the first audio device found is used |
 | `set_data_callback_in_frames(cb)` | same | Frames of 16 bit stereo |
 | `set_data_callback(cb)` | same | Raw bytes |
 | `set_stream_reader(cb, also_output)` | same | `also_output` is accepted and ignored |
 | `set_on_data_received(cb)` | same | |
 | `set_avrc_metadata_callback(cb)` | same signature `(uint8_t id, const uint8_t* text)` | Attribute ids use the same values as `ESP_AVRC_MD_ATTR_*` |
-| `set_avrc_metadata_attribute_mask(mask)` | not available | See P1-3 |
+| `set_avrc_metadata_attribute_mask(mask)` | same, with `blue_a2dp::MD_TITLE`, `MD_ARTIST`, ... (same values as `ESP_AVRC_MD_ATTR_*`) | Default: all attributes (`MD_ALL`) |
 | `set_avrc_rn_playstatus_callback(cb)` | same, takes `blue_a2dp::PlayStatus` | |
-| `set_avrc_rn_play_pos_callback(cb)` | not available | See P1-2 |
+| `set_avrc_rn_play_pos_callback(cb, notif_interval)` | same | Position in ms. The peer reports every second; the callback is called at most every `notif_interval` seconds (default 10) |
 | `set_avrc_passthru_command_callback(cb)` | `set_on_avrcp_operation(cb, obj)` | Callback gets `(op, pressed, obj)` |
 | `set_on_connection_state_changed(cb)` | same, takes `blue_a2dp::ConnectionState` | Enum values: `Disconnected`, `Connecting`, `Connected`, `Disconnecting` |
 | `set_on_audio_state_changed(cb)` | same, takes `blue_a2dp::AudioState` | Values: `Suspended`, `Stopped`, `Started` |
 | `set_ssid_callback(cb)` (source) | same, `bool cb(name, address, rssi)` | |
-| `set_rssi_callback`, `set_rssi_active`, `get_last_rssi` | not available | See P1-1 |
+| `set_rssi_callback`, `set_rssi_active`, `get_last_rssi`, `update_rssi` | same; the parameter is `blue_a2dp::RSSIData&` (fields `bda`, `stat`, `rssi_delta` as in ESP-IDF) | Read when the connection is established and then every 5 s (`set_rssi_active(true, interval_ms)`) |
 | `set_auto_reconnect(bool)` | same | |
-| `set_connected(bool)` | `disconnect()` / `reconnect()` | See P1-5 |
+| `set_connected(bool)` | same | `true` = `reconnect()`, `false` = `disconnect()` |
 | `set_volume(v)` | same, 0..127 | |
 | `set_default_bt_mode(...)` | N/A | Classic-only stack |
-| `set_bitrate_callback(cb)` (AAC encoder) | not available | The bitrate is clamped to the peer's maximum. See P1-7 |
+| `set_bitrate_callback(cb)` (AAC encoder) | same, on `A2DPCodecAACEncoder` | Gets the bitrate agreed with the peer (requested value lowered to the peer's maximum); with a callback the sketch sets the encoder's bitrate itself |
 | `add_decoder(a2dp_sbc)` / `add_decoder(a2dp_aac)` (sink) | `add_codec(&codec)` | `A2DPCodec*` wrappers in `BTstackA2DP/codecs/` |
 | `add_encoder(a2dp_sbc)` / `add_encoder(a2dp_aac)` (source) | `add_codec(&codec)` | |
 | SBC from audio-tools | `set_sbc_codec(&codec)` | Replaces btstack's SBC, see `sink-sbc-audiotools` |
 | `set_pin_code`, `pin_code()` | `set_pin_code(pin)` | No getter |
-| `activate_pin_code(true)`, `confirm_pin_code()` | `set_pairing_confirm_callback(cb)` | Callback gets the numeric value and returns accept / reject. See P1-6 |
+| `activate_pin_code(true)`, `confirm_pin_code()`, `confirm_pin_code(code)`, `pin_code()`, `debounce()` | same | The phone shows a number, `pin_code()` returns it until the pairing is answered. Alternative: `set_pairing_confirm_callback(cb)` (synchronous) |
 | `is_connected()`, `get_connection_state()`, `get_audio_state()` | same | |
 | `play()`, `pause()` | same | |
 | `set_now_playing(...)` (source) | same | |
@@ -77,7 +77,7 @@ holds sketches for the old ESP32-A2DP API and is not mapped here: use the exampl
 
 | ESP32-A2DP example | What it shows | BTstackA2DP equivalent | Status |
 |---|---|---|---|
-| `bt_music_receiver` | Receiver to an I2S DAC | `sink-i2s` (queue, I2S set up in the audio-info callback) | Covered, different structure |
+| `bt_music_receiver` | Receiver to an I2S DAC | `BluetoothA2DPSink a2dp_sink(i2s)` works unchanged; `sink-i2s` shows the queued variant | Covered |
 | `bt_music_receiver_32bits` | 32-bit I2S output | none. SBC is decoded to 16 bit PCM; `AudioInfo::bits_per_sample` is always 16 | Missing (by design). Convert in the stream reader |
 | `bt_music_receiver_and_BLE` | Title in a BLE characteristic while A2DP runs | none. No BLE in the build | N/A (BLE coexistence untested, see P3-2) |
 | `bt_music_receiver_arduino_i2s` | Arduino `ESP_I2S` driver | none. The examples use audio-tools I2S only | Missing |
@@ -85,17 +85,17 @@ holds sketches for the old ESP32-A2DP API and is not mapped here: use the exampl
 | `bt_music_receiver_audioboards` | AudioKit boards with `AudioBoardStream` | none | Missing |
 | `bt_music_receiver_codec` | SBC and AAC decoders | `sink-aac-i2s` (`add_codec`), `sink-sbc-audiotools` (`set_sbc_codec`) | Covered |
 | `bt_music_receiver_datacallback` | Raw data callback | `set_stream_reader` | Covered |
-| `bt_music_receiver_disconnect-reconnect` | Manual disconnect and reconnect | `disconnect()` / `reconnect()`, no example | Partial |
-| `bt_music_receiver_playing_status_callbacks` | Play status and play position | play status yes; play position missing | Partial |
+| `bt_music_receiver_disconnect-reconnect` | Manual disconnect and reconnect | `set_connected()`, `disconnect()` / `reconnect()` | Covered |
+| `bt_music_receiver_playing_status_callbacks` | Play status and play position | `set_avrc_rn_playstatus_callback()`, `set_avrc_rn_play_pos_callback()`; no track-change callback | Partial |
 | `bt_music_receiver_queued` | Queued receiver | `sink-i2s` uses the same idea | Covered |
 | `bt_music_receiver_reconnect` | Auto reconnect | `start(name, true)` | Covered |
 | `bt_music_receiver_resample48000` | Always 48 kHz output | none. The I2S clock follows the stream rate from the audio-info callback | Missing (see P2) |
-| `bt_music_receiver_rssi` | RSSI of the link | btstack has `gap_read_rssi()`, not exposed | Missing |
-| `bt_music_receiver_simple_with_pin` | PIN pairing with a button to confirm | `set_pin_code()` and `set_pairing_confirm_callback()` | Partial |
+| `bt_music_receiver_rssi` | RSSI of the link | `set_rssi_active()`, `set_rssi_callback()`, `get_last_rssi()` | Covered |
+| `bt_music_receiver_simple_with_pin` | PIN pairing with a button to confirm | `activate_pin_code()`, `pin_code()`, `confirm_pin_code()`, `debounce()` (`touchRead()` is ESP32 only) | Covered |
 | `bt_music_receiver_status_callback` | Connection and audio state | `set_on_connection_state_changed`, `set_on_audio_state_changed` | Covered |
 | `bt_music_receiver_to_internal_dac` | Built-in DAC of the original ESP32 | none | Missing |
 | `bt_music_receiver_with_auto_shutdown` | Deep sleep after 5 min without data | `set_on_data_received()` and `get_connection_state()` work, no example | Partial |
-| `bt_music_receiver_with_metadata` | Title, artist, album, playing time; play / pause | metadata callback and `play()` / `pause()` yes; attribute mask missing | Partial |
+| `bt_music_receiver_with_metadata` | Title, artist, album, playing time; play / pause | metadata callback, `set_avrc_metadata_attribute_mask()`, `play()` / `pause()` | Covered |
 
 ### 3.2 Sender (source)
 
@@ -104,26 +104,32 @@ holds sketches for the old ESP32-A2DP API and is not mapped here: use the exampl
 | `bt_music_sender` | 2 channel sine to a speaker | `source-sine` | Covered |
 | `bt_music_sender_autoreconnect` | Auto reconnect | `set_auto_reconnect()` (common class), no example | Covered |
 | `bt_music_sender_avrc` | Speaker buttons | `set_on_avrcp_operation()`, no example | Partial |
-| `bt_music_sender_codec` | SBC and AAC encoders, AAC bitrate callback | `source-aac`, `source-sbc-audiotools`; no bitrate callback | Partial |
-| `bt_music_sender_disconnect` | `set_connected()` | `disconnect()` / `reconnect()` | Partial |
-| `bt_music_sender_ssid_callback` | Scan for speakers, choose in the callback; `start()` without name | `set_ssid_callback()` yes; `start()` needs a name | Partial |
+| `bt_music_sender_codec` | SBC and AAC encoders, AAC bitrate callback | `source-aac`, `source-sbc-audiotools`, `set_bitrate_callback()` | Covered |
+| `bt_music_sender_disconnect` | `set_connected()` | `set_connected()` | Covered |
+| `bt_music_sender_ssid_callback` | Scan for speakers, choose in the callback; `start()` without name | `set_ssid_callback()`, `start()` | Covered |
 | `bt_music_sender_status_callback` | Connection state | `set_on_connection_state_changed()` | Covered |
 
 ## 4. Differences that matter when porting
 
-### 4.1 The output is a callback, not a stream
+### 4.1 Output: a stream, or a callback with a queue
 
-ESP32-A2DP writes the PCM directly into an audio-tools stream: `BluetoothA2DPSink a2dp_sink(i2s);`.
-BTstackA2DP calls `set_stream_reader(cb)` in the Bluetooth task, and the sketch has to move the data
-out of the callback. The reason is that the callback must not block, so the examples put the data into
-a lock-free queue and copy it to the I2S stream in `loop()`:
+As in ESP32-A2DP, the PCM can go straight into a stream given to the constructor (or to
+`set_output()`). Any object with `write(const uint8_t*, size_t)` works: an Arduino `Print`, an
+audio-tools `I2SStream` or `AudioStream`. `start()` calls its `begin()`, and audio-tools streams get
+the sample rate through `setAudioInfo()` once the stream starts:
 
 ```cpp
-// ESP32-A2DP
-I2SStream out;
-BluetoothA2DPSink a2dp_sink(out);
+// ESP32-A2DP and BTstackA2DP
+I2SStream i2s;
+BluetoothA2DPSink a2dp_sink(i2s);
+```
 
-// BTstackA2DP (see examples/sink-i2s)
+The data is written from the Bluetooth task, as in ESP32-A2DP: a blocking I2S write paces the
+stream, but anything slow in that path delays the Bluetooth stack. The alternative is
+`set_stream_reader(cb)` with a lock-free queue that `loop()` copies to the output, so the Bluetooth
+task never waits (see `examples/sink-i2s`):
+
+```cpp
 RingBufferSPSC<uint8_t> buffer(20 * 1024);
 QueueStream<uint8_t> queue(buffer);
 StreamCopy copier(i2s, queue);
@@ -131,8 +137,8 @@ void on_audio(const uint8_t* data, uint32_t len) { queue.write(data, len); }
 void loop() { copier.copy(); }
 ```
 
-The I2S configuration moves into the audio-info callback, because the sample rate is only known
-once the stream starts (`set_audio_info_callback()`).
+With the callback, the I2S configuration moves into the audio-info callback, because the sample rate
+is only known once the stream starts (`set_audio_info_callback()`).
 
 ### 4.2 Codecs are added to the object
 
@@ -148,16 +154,21 @@ a2dp_sink.add_codec(&aac);   // before start()
 
 SBC is always there. Use `set_sbc_codec()` only to replace btstack's SBC with the audio-tools one.
 
-### 4.3 Starting a source needs a name
+### 4.3 Choosing the speaker
 
-`BluetoothA2DPSource::start(name, cb)` connects to the speaker with that name. There is no
-`start()` that scans and lets the callback choose (ESP32-A2DP `bt_music_sender_ssid_callback`).
+`BluetoothA2DPSource::start(name, cb)` connects to the speaker with that name. `start()` and
+`start(cb)` search without a name: `set_ssid_callback()` sees every audio device that is found
+and returns `true` for the one to connect to; without a callback the first one is used (ESP32-A2DP
+`bt_music_sender_ssid_callback`).
 
 ### 4.4 Pairing
 
-`set_pin_code()` sets the PIN for legacy pairing (default `"0000"`). For Secure Simple Pairing, a
-numeric-comparison confirmation goes to `set_pairing_confirm_callback()`. The ESP32 functions
-`activate_pin_code()` and `confirm_pin_code()` have no direct equivalent yet.
+`set_pin_code()` sets the PIN for legacy pairing (default `"0000"`). For Secure Simple Pairing
+with confirmation by the user, use the ESP32-A2DP functions: `activate_pin_code(true)` before
+`start()`, then `pin_code()` returns the number that the phone shows, and `confirm_pin_code()`
+(or `confirm_pin_code(code)`, which rejects a wrong number) answers the request. A synchronous
+alternative is `set_pairing_confirm_callback()`. Both make the device announce a display with
+yes / no, so the phone shows the number; without them pairing is "just works".
 
 ### 4.5 Bonding storage
 
@@ -193,31 +204,32 @@ gain is available on the sink (`set_volume_control(true)`) and the source.
 
 Ordered by how many ESP32-A2DP examples they unlock and how much work they are.
 
-### P1: close the gaps that block ESP32-A2DP examples
+### P1: close the gaps that block ESP32-A2DP examples (done)
 
-1. **RSSI** (unlocks `bt_music_receiver_rssi`). Add `set_rssi_callback()`, `set_rssi_active()`
-   and `get_last_rssi()`, using btstack's `gap_read_rssi()` on the ACL connection handle, polled
-   from the run loop. Effort: small.
-2. **Play position** (unlocks `bt_music_receiver_playing_status_callbacks`). btstack reports
-   `AVRCP_NOTIFICATION_EVENT_PLAYBACK_POS_CHANGED` in the AVRCP controller; forward it to a new
-   `set_avrc_rn_play_pos_callback()`. Effort: small.
-3. **Metadata attribute mask** (unlocks `bt_music_receiver_with_metadata`). Let the sketch choose
-   the attributes requested from the peer. Needs a check of btstack's element attribute request
-   before implementing. Effort: small.
-4. **Source scan without a name** (unlocks `bt_music_sender_ssid_callback`). Add
-   `start(FrameDataCallback)` that uses the existing inquiry code and lets `set_ssid_callback()`
-   return `true` to pick a device. Effort: medium.
-5. **`set_connected(bool)`** as an alias for `reconnect()` / `disconnect()`, to make
-   `bt_music_sender_disconnect` and `bt_music_receiver_disconnect-reconnect` one-line ports. Effort:
-   very small.
-6. **Pairing names** `activate_pin_code()` and `confirm_pin_code()` as thin wrappers over the existing
-   callbacks. Effort: very small.
-7. **AAC bitrate callback** (`set_bitrate_callback()`), so the sketch can change the bitrate that
-   the encoder uses. Effort: small.
-8. **Optional output adapter** for audio-tools streams: a header that accepts an audio-tools
-   `Print` / `Stream` and performs the queue step of section 4.1, so that
-   `BluetoothA2DPSink a2dp(out)` works again. It must stay optional, so the core remains free of
-   audio-tools. Effort: medium. This is the largest difference for people moving from ESP32-A2DP.
+All items are implemented with the ESP32-A2DP names (see section 2). Compiled on ESP32,
+Pico W / Pico 2 W, nRF52840 and the desktop; the behaviour on real devices is still to be tested
+(see `docs/tests.md`, section 3).
+
+1. **RSSI**: `set_rssi_active(active, interval_ms = 5000)`, `set_rssi_callback()`,
+   `get_last_rssi()`, `update_rssi()`. HCI Read RSSI on the ACL link when the connection is
+   established and then periodically; the value is the delta to the controller's golden range,
+   like ESP-IDF's `rssi_delta`.
+2. **Play position**: `set_avrc_rn_play_pos_callback(cb, notif_interval = 10)`. btstack asks the
+   peer for a report every second and registers again automatically; the callback is throttled to
+   `notif_interval` seconds, and called at once after a track change.
+3. **Metadata attribute mask**: `set_avrc_metadata_attribute_mask(flags)`. With a subset, the
+   attributes are requested with `avrcp_controller_get_element_attributes()`; attributes outside
+   the mask are also filtered out, as some peers send all of them.
+4. **Source scan without a name**: `start()` and `start(cb)`.
+5. **`set_connected(bool)`**.
+6. **Pairing**: `activate_pin_code()`, `confirm_pin_code()`, `confirm_pin_code(code)`,
+   `pin_code()`, and `debounce()` used by the ESP32-A2DP PIN example.
+7. **AAC bitrate callback**: `A2DPCodecAACEncoder::set_bitrate_callback()` and `bitrate()`.
+8. **Output stream**: `BluetoothA2DPSink a2dp_sink(out)` and `set_output(out)` for any object with
+   `write(const uint8_t*, size_t)`. Implemented with templates in the sink itself instead of a
+   separate header, so the core still does not include audio-tools. Unlike the proposal it writes
+   directly from the Bluetooth task, as ESP32-A2DP does; the queue stays the recommended way for
+   heavy outputs.
 
 ### P2: examples that exist in ESP32-A2DP but not here
 

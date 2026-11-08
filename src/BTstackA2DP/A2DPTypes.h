@@ -88,5 +88,20 @@ typedef int32_t (*RawDataCallback)(uint8_t* data, int32_t len);
 typedef bool (*DeviceFoundCallback)(const char* name, const uint8_t* addr, int rssi);
 /// Called if the PIN/numeric comparison for pairing has to be confirmed (return true to accept)
 typedef bool (*PairingConfirmCallback)(uint32_t numeric_value);
+/// AVRCP play position in ms (set_avrc_rn_play_pos_callback)
+typedef void (*PlayPosCallback)(uint32_t play_pos);
+
+/// Link quality as reported by HCI Read RSSI. The field names follow ESP32-A2DP's
+/// esp_bt_gap_cb_param_t::read_rssi_delta_param. rssi_delta is the difference in dB to the
+/// "golden receive power range" of the controller (0 = inside the range).
+struct RSSIData {
+  uint8_t bda[6] = {0};  // address of the peer
+  int stat = -1;         // 0 = valid measurement, -1 = nothing measured yet
+  int8_t rssi_delta = 0;
+};
+typedef void (*RSSICallback)(RSSIData& rssi);
+
+/// All metadata attributes (MD_TITLE | MD_ARTIST | ... | MD_PLAYING_TIME)
+static const uint8_t MD_ALL = 0x7F;
 
 }  // namespace blue_a2dp

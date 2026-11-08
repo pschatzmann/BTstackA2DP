@@ -25,4 +25,19 @@ uint32_t hal_time_ms(void) { return (uint32_t)millis(); }
 
 }  // extern "C"
 
+// mbed sends stdout (printf: BTSTACKA2DP_LOG, asserts, fault reports) to its STDIO UART, which
+// on the Nano 33 BLE uses D0/D1, the pins of the HCI module: the text would end up in the HCI
+// link. Send it to the USB serial port instead. Weak, so a sketch can still choose another
+// stream with REDIRECT_STDOUT_TO(...).
+namespace mbed {
+__attribute__((weak)) FileHandle* mbed_override_console(int fd) {
+  (void)fd;
+  return static_cast<FileHandle*>(Serial);
+}
+__attribute__((weak)) FileHandle* mbed_target_override_console(int fd) {
+  (void)fd;
+  return static_cast<FileHandle*>(Serial);
+}
+}  // namespace mbed
+
 #endif  // ARDUINO_ARCH_NRF52840 && ARDUINO_ARCH_MBED

@@ -47,13 +47,19 @@ class PortNRF52 {
     st.baudrate = baudrate;
   }
 
+  /// How long start() waits for the Bluetooth module to answer (default 3000 ms).
+  /// Call before start().
+  static void set_startup_timeout(uint32_t ms) { s().startup_timeout_ms = ms; }
+
   /// Starts the btstack thread, runs 'setup' in it and powers on the controller.
-  /// Blocks until the setup is done.
+  /// Blocks until the controller is working. Returns false if the setup failed or the
+  /// module did not answer within the startup timeout (not connected, wrong pins or baud
+  /// rate); the controller is then powered off again and a later start() retries.
   static bool start(SetupFn setup, void* ctx) {
     State& st = s();
-    if (st.running) {  // restart after stop()
+    if (st.running) {  // restart after stop() or after a timeout
       post(&power_on, nullptr);
-      return true;
+      return wait_until_working();
     }
     if (st.thread) {  // previous start failed: the thread has finished
       st.thread->join();
@@ -72,8 +78,9 @@ class PortNRF52 {
       return false;
     }
     st.ready->acquire();
-    st.running = st.ok;
-    return st.ok;
+    st.running = st.ok;  // the thread keeps running from here on, also after a timeout
+    if (!st.ok) return false;
+    return wait_until_working();
   }
 
   /// Powers down the controller (the thread stays alive, start() powers it up again)
@@ -109,6 +116,7 @@ class PortNRF52 {
     // configuration
     int tx = PIN_SERIAL_TX, rx = PIN_SERIAL_RX, rts = -1, cts = -1;
     uint32_t baudrate = 921600;
+    uint32_t startup_timeout_ms = 3000;
     // thread and synchronization
     rtos::Thread* thread = nullptr;
     rtos::Semaphore* ready = nullptr;
@@ -128,6 +136,20 @@ class PortNRF52 {
 
   static void power_on(void*) { hci_power_control(HCI_POWER_ON); }
   static void power_off(void*) { hci_power_control(HCI_POWER_OFF); }
+
+  // Called from the starting thread (not the btstack thread): polls the HCI state.
+  static bool wait_until_working() {
+    State& st = s();
+    uint32_t start_ms = millis();
+    while (millis() - start_ms < st.startup_timeout_ms) {
+      if (hci_get_state() == HCI_STATE_WORKING) return true;
+      delay(10);
+    }
+    if (hci_get_state() == HCI_STATE_WORKING) return true;
+    // no answer: stop resending the HCI reset; start() powers the controller on again
+    post(&power_off, nullptr);
+    return false;
+  }
 
   // ---- btstack thread ----------------------------------------------------------------
 

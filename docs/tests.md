@@ -46,7 +46,9 @@ Desktop = CMake build.
 ESP32 examples were last built in full on 2026-11-08; `sink-serial` and `source-sine` were rebuilt
 after the last library change. All 11 examples were built for the Pico W and the Pico 2 W on
 2026-11-08 with the R20 / R21 / R22 fixes and the nRF52840 / Raspberry Pi commit: 22 of 22 PASS
-(slow: several minutes per sketch, run 4 in parallel). The ESP32 column predates those fixes.
+(slow: several minutes per sketch, run 4 in parallel). Repeated on 2026-11-08 after the nRF52
+fixes (R23, R24) and the migration P1 API, together with ESP32 (all 11 examples) and the
+Nano 33 BLE (`sink-serial`, `source-sine`): 35 of 35 PASS.
 
 ## 3. Hardware tests
 
@@ -123,12 +125,27 @@ Setup: CSR8811-type module on Serial1 (D0/D1), standard HCI firmware at 921600 b
 
 | ID | Test | Status | Date | Notes |
 |---|---|---|---|---|
-| N1 | Compile `sink-serial` and `source-sine` | PASS | 2026-11-08 | 18 % flash, 24 % RAM |
-| N2 | Module answers HCI reset; `start()` returns true | TODO | | the btstack thread is started; not run on a board yet |
+| N1 | Compile `sink-serial` and `source-sine` | PASS | 2026-11-08 | 18 % flash, 24 % RAM. Also the test sink (`gap_sink`, 32 KB queue) with the R20-R22 fixes: 21 % flash, 37 % RAM; runs on the board |
+| N2 | Module answers HCI reset; `start()` returns true | BLOCKED | 2026-11-08 | bare Nano 33 BLE, no HCI module yet. Without a module `start()` now returns false after 3006 ms (R24 fixed) and powers the controller off. Answer of a real module still to test |
 | N3 | Sink: pairs and receives SBC audio at 921600 baud | TODO | | |
 | N4 | Source: streams a sine to a speaker without gaps (`extras/test/gaps.py`) | TODO | | |
 | N5 | RTS/CTS wiring and `set_uart()` with a non-default pin set | TODO | | |
 | N6 | Pairing survives a reset | N/A | | pairing is kept in RAM only (limitation) |
+
+### 3.7 ESP32-A2DP compatible API (migration P1)
+Compile test: `p1_api` sketch (every new function, `BluetoothA2DPSink a2dp_sink(i2s)` with an
+audio-tools `I2SStream`, a sink on `Serial`) builds on ESP32 and Pico 2 W; desktop tool builds.
+
+| ID | Test | Status | Date | Notes |
+|---|---|---|---|---|
+| C1 | RSSI: callback at connect and every 5 s, `get_last_rssi()`, `update_rssi()` | TODO | | |
+| C2 | Play position from a phone / PC player, throttled to `notif_interval` | TODO | | needs a peer that supports PLAYBACK_POS_CHANGED (our source does not) |
+| C3 | Metadata mask: only the selected attributes reach the callback | TODO | | ESP32 source with `set_now_playing()` is a usable peer |
+| C4 | Source `start()` without a name: SSID callback sees devices, `true` connects | TODO | | |
+| C5 | `set_connected(false)` / `set_connected(true)` | TODO | | |
+| C6 | `activate_pin_code()`: number shown on the phone, `pin_code()`, `confirm_pin_code()` accepts, wrong `confirm_pin_code(code)` rejects | TODO | | |
+| C7 | AAC `set_bitrate_callback()` gets the agreed bitrate | TODO | | needs an AAC speaker |
+| C8 | `BluetoothA2DPSink a2dp_sink(i2s)`: `begin()` at start, rate via `setAudioInfo()`, clean audio | TODO | | needs a DAC; with a `Print` it can be checked by counting bytes |
 
 ## 4. Codec interoperability
 Fill in per device: the codec that was actually negotiated and whether it sounds right.
@@ -164,6 +181,8 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | R16 (start-up part fixed: skip `libusb_set_configuration` when already configured; the dongle can start and shut down cleanly now) | The libusb transport resets the dongle at start (`libusb_reset_device`); with this CSR clone the device then vanishes from the bus, every run. Opening a dongle that is not on the bus (or is half-initialised) blocks instead of failing; the tool needs a timeout around controller start. Also: after each run the libusb transport leaves the dongle without kernel driver (`Driver=[none]`), so the next run usually fails until a replug (R10 patch not effective yet) | timeout in the start path; verify the reattach patch on close |
 | R11 | Debug logging at 115200 baud stalls the Bluetooth task: the first debug build made the stream break up badly. Log lines must never be printed per packet | fixed for the per-packet event; keep `BTSTACKA2DP_DEBUG` off in production |
 | R8 | A2DP volume: absolute volume only, no local gain curve | E11 |
+| R23 | **Fixed.** nRF52840 (mbed): `printf` goes to mbed's STDIO UART, which on the Nano 33 BLE is D0/D1, the HCI module's UART. A `BTSTACKA2DP_DEBUG` build would write log text into the HCI link | **Fixed**: `nrf52_hal.cpp` sends stdout to USB `Serial` by default (weak `mbed_override_console`, so a sketch's own `REDIRECT_STDOUT_TO(...)` still wins; both variants link). Verified: debug log on USB without any redirect in the sketch. Debug lines of the sketch and the btstack thread can interleave (unbuffered console) |
+| R24 | **Fixed.** nRF52840: `start()` returned true as soon as the btstack thread runs, also with no controller; the HCI state stays "initializing" forever and nothing tells the sketch (same gap as R16 on the desktop) | **Fixed**: the nRF52 port's `start()` waits until the controller is working, at most `Port::set_startup_timeout(ms)` (default 3000 ms), and returns false otherwise (controller powered off again, a later `start()` retries). Desktop (R16) still has no timeout |
 | R20 | **Fixed.** Stale link key was never recovered. When the peer lost its bond (Pico reflashed, speaker reset or "forgot" the device) the source's A2DP signaling connection fails with 0x63 (`L2CAP_CONNECTION_PIN_OR_LINK_KEY_MISSING`), and the source retries forever with the same key (backoff up to 60 s) without pairing again. Likely the cause of the Pico restart problem in S10 / R19 | **Fixed** in both roles (`handle_connection_failure`): on 0x63, 0x05 or 0x06 the key for that address is deleted and the connection retried after 1 s, which pairs again (once per reconnect cycle; afterwards the normal backoff). Verified: Pico reflashed under a bonded ESP32 source, connected again about 2 s later, no erase. Sink side (phone that forgot the device) not tested on hardware |
 | R21 | **Fixed.** Joint-stereo-only sink gave a silent stream. The source offers only `AVDTP_SBC_STEREO`; with no common channel mode btstack still sends a (malformed) SBC configuration and our `configure_sbc()` uses it unchecked (0 blocks / subbands, so no packets). Confirms R5 | **Fixed**: the source offers joint stereo (it was in the comment, missing in the code); `configure_sbc()` rejects an invalid configuration and disconnects; `A2DP_SUBEVENT_COMMAND_REJECTED` during set-up disconnects too (before, a mono-only sink left the source in "connecting" forever). No automatic retry against an incompatible device. Verified with joint-only and mono-only Pico sinks |
 | R22 | **Fixed.** The sink muted a source with software volume: btstack's AVRCP target answers the source's volume registration with its own copy of the volume, which starts at 0, so the source set its volume to 0 and sent digital silence (the ESP32 source to the Pico sink delivered only zeros once AVRCP connected) | `on_avrcp_connected()` of the sink sets btstack's copy with `avrcp_target_adjust_absolute_volume(volume_)`; source now gets 127, sine arrives at full level. Affects every sink setup, including phones / PCs that apply the reported volume |
@@ -214,3 +233,6 @@ Rows are devices, "SBC (audio-tools)" is the `set_sbc_codec()` replacement.
 | 2026-11-08 | `gaps.py` validated on synthetic data | detects silence, dropped and repeated samples; no false alarm on clean or noisy tones |
 | 2026-11-08 | Pico tests against the ESP32 (scratch sketches `gap_sink`, `sine_source`; the sine check runs on the receiving board) | P1, P2, P3, P4 PASS; P5 PARTIAL; S3 FAIL (R21); new R20 (stale link key). Debug log now shows the signaling failure status and the negotiated SBC configuration |
 | 2026-11-08 | Fixes for R20 and R21, found R22 on the way (the joint-stereo change looked guilty: SBC loopback on the ESP32 and on the Pico, stereo and joint stereo, all RMS 7074; stereo-only source still silent; source log showed `volume event 0`) | R20, R21, R22 fixed and verified on ESP32 + Pico 2 W; S3 PASS (simulated); regression ESP32 source to Pico sink clean (residual 19, 0 gaps after start) |
+| 2026-11-08 | Nano 33 BLE connected, no HCI module | runs; HCI never leaves "initializing" (N2 BLOCKED); found R23 (stdout on the HCI pins) and R24 (no start-up timeout) |
+| 2026-11-08 | R23 and R24 fixed in the nRF52 port | without a module `start()` returns false after 3 s; debug log on USB by default; `sink-serial`, `source-sine` compile (18 %) |
+| 2026-11-08 | Migration P1 (ESP32-A2DP compatible API) implemented | compiles on ESP32, Pico 2 W, desktop; hardware tests C1-C8 TODO |

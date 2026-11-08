@@ -90,6 +90,70 @@ class BluetoothA2DPCommon {
   }
   /// Return false to reject an SSP pairing request. Default: accept.
   void set_pairing_confirm_callback(PairingConfirmCallback cb) { pairing_cb_ = cb; }
+
+  // ---- ESP32-A2DP compatible functions ------------------------------------------------
+  /// Attributes requested from the peer for set_avrc_metadata_callback(): MD_TITLE | MD_ARTIST
+  /// | ... (same values as ESP_AVRC_MD_ATTR_*). Default: all (MD_ALL).
+  void set_avrc_metadata_attribute_mask(int flags) { metadata_mask_ = (uint8_t)(flags & MD_ALL); }
+  /// Play position in ms, reported by the peer while playing. The peer sends it every second;
+  /// the callback is called at most every 'notif_interval' seconds.
+  void set_avrc_rn_play_pos_callback(PlayPosCallback cb, uint32_t notif_interval = 10) {
+    play_pos_cb_ = cb;
+    play_pos_interval_ms_ = notif_interval * 1000;
+  }
+
+  /// Reads the link quality (RSSI) when a connection is established and then every
+  /// 'interval_ms' while connected. Results: set_rssi_callback() and get_last_rssi().
+  void set_rssi_active(bool active, uint32_t interval_ms = 5000) {
+    rssi_active_ = active;
+    rssi_interval_ms_ = interval_ms;
+    run<&BluetoothA2DPCommon::do_rssi_update_timer>();
+  }
+  /// Requests a new RSSI value now (asynchronous). false if RSSI is not active / not connected.
+  bool update_rssi() {
+    if (!rssi_active_ || !is_connected()) return false;
+    run<&BluetoothA2DPCommon::do_read_rssi>();
+    return true;
+  }
+  /// Last measured RSSI (stat == -1 if nothing has been measured yet)
+  RSSIData get_last_rssi() const { return last_rssi_; }
+  void set_rssi_callback(RSSICallback cb) { rssi_cb_ = cb; }
+
+  /// Pairing with confirmation by the application (ESP32-A2DP): the phone shows a number,
+  /// pin_code() returns it and the sketch accepts with confirm_pin_code(). Call before start().
+  void activate_pin_code(bool active) {
+    pin_code_active_ = active;
+    run<&BluetoothA2DPCommon::do_apply_pairing_mode>();
+  }
+  /// Accepts the pending pairing request (see activate_pin_code())
+  void confirm_pin_code() {
+    confirm_code_ = -1;
+    run<&BluetoothA2DPCommon::do_confirm_pin_code>();
+  }
+  /// Accepts the pending pairing request if 'code' matches the number, rejects it otherwise
+  void confirm_pin_code(int code) {
+    confirm_code_ = code;
+    run<&BluetoothA2DPCommon::do_confirm_pin_code>();
+  }
+  /// Number of the pending pairing request, 0 if there is none
+  int pin_code() const { return pin_code_int_; }
+
+  /// true: connect to the last peer again, false: disconnect (and stay disconnected)
+  void set_connected(bool active) {
+    if (active)
+      reconnect();
+    else
+      disconnect();
+  }
+
+  /// Calls cb, but not more often than every 'ms' milliseconds (e.g. for a button)
+  void debounce(void (*cb)(void), int ms) {
+    uint32_t now = btstack_run_loop_get_time_ms();
+    if (debounce_ms_ == 0 || now - debounce_ms_ >= (uint32_t)ms) {
+      debounce_ms_ = now;
+      if (cb) cb();
+    }
+  }
   /// PIN used for legacy pairing (old devices). Default "0000".
   void set_pin_code(const char* pin) { strncpy(pin_, pin, sizeof(pin_) - 1); }
   /// Name under which this device is visible
@@ -187,6 +251,14 @@ class BluetoothA2DPCommon {
     }
     if (connection_state_ == s) return;
     connection_state_ = s;
+    if (s == ConnectionState::Connected && rssi_active_) {
+      do_read_rssi();
+      do_rssi_update_timer();
+    }
+    if (s == ConnectionState::Disconnected) {
+      btstack_run_loop_remove_timer(&rssi_timer_);
+      pin_code_int_ = 0;
+    }
     if (connection_cb_) connection_cb_(s, connection_obj_);
   }
   void set_audio_state(AudioState s) {
@@ -277,6 +349,22 @@ class BluetoothA2DPCommon {
   void* operation_obj_ = nullptr;
   VolumeCallback volume_cb_ = nullptr;
   PairingConfirmCallback pairing_cb_ = nullptr;
+  // ESP32-A2DP compatible features
+  uint8_t metadata_mask_ = MD_ALL;
+  PlayPosCallback play_pos_cb_ = nullptr;
+  uint32_t play_pos_interval_ms_ = 10000;
+  uint32_t play_pos_last_ms_ = 0;
+  bool play_pos_reported_ = false;
+  bool rssi_active_ = false;
+  uint32_t rssi_interval_ms_ = 5000;
+  RSSIData last_rssi_;
+  RSSICallback rssi_cb_ = nullptr;
+  btstack_timer_source_t rssi_timer_;
+  bool pin_code_active_ = false;
+  volatile int pin_code_int_ = 0;
+  int confirm_code_ = -1;
+  bd_addr_t pin_addr_;
+  uint32_t debounce_ms_ = 0;
 
  private:
   template <void (BluetoothA2DPCommon::*M)()>
@@ -309,6 +397,69 @@ class BluetoothA2DPCommon {
     if (have_peer_ && connection_state_ == ConnectionState::Disconnected) do_connect_to_peer();
   }
   void do_delete_link_keys() { gap_delete_all_link_keys(); }
+
+  // ---- RSSI -------------------------------------------------------------------------
+  void do_read_rssi() {
+    if (!have_peer_) return;
+    hci_connection_t* con = hci_connection_for_bd_addr_and_type(peer_, BD_ADDR_TYPE_ACL);
+    if (con) gap_read_rssi(con->con_handle);  // -> GAP_EVENT_RSSI_MEASUREMENT
+  }
+  /// (Re)arms the periodic RSSI timer while connected and active
+  void do_rssi_update_timer() {
+    btstack_run_loop_remove_timer(&rssi_timer_);
+    if (!rssi_active_ || !is_connected() || rssi_interval_ms_ == 0) return;
+    btstack_run_loop_set_timer_handler(&rssi_timer_, &rssi_timer_cb);
+    btstack_run_loop_set_timer(&rssi_timer_, rssi_interval_ms_);
+    btstack_run_loop_add_timer(&rssi_timer_);
+  }
+  static void rssi_timer_cb(btstack_timer_source_t*) {
+    BluetoothA2DPCommon* self = active();
+    if (!self) return;
+    self->do_read_rssi();
+    self->do_rssi_update_timer();
+  }
+  void handle_rssi(uint8_t* packet) {
+    hci_connection_t* con = hci_connection_for_bd_addr_and_type(peer_, BD_ADDR_TYPE_ACL);
+    if (!con || con->con_handle != gap_event_rssi_measurement_get_con_handle(packet)) return;
+    memcpy(last_rssi_.bda, peer_, 6);
+    last_rssi_.stat = 0;
+    last_rssi_.rssi_delta = (int8_t)gap_event_rssi_measurement_get_rssi(packet);
+    if (rssi_cb_) rssi_cb_(last_rssi_);
+  }
+
+  // ---- pairing ----------------------------------------------------------------------
+  /// With a confirmation by the application we show a number (display + yes/no), else
+  /// "just works" with automatic acceptance
+  void do_apply_pairing_mode() {
+    bool confirm = pairing_cb_ != nullptr || pin_code_active_;
+    gap_ssp_set_auto_accept(!confirm);
+    gap_ssp_set_io_capability(confirm ? SSP_IO_CAPABILITY_DISPLAY_YES_NO
+                                      : SSP_IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+  }
+  void do_confirm_pin_code() {
+    if (pin_code_int_ == 0) return;  // nothing pending
+    if (confirm_code_ < 0 || confirm_code_ == pin_code_int_)
+      gap_ssp_confirmation_response(pin_addr_);
+    else
+      gap_ssp_confirmation_negative(pin_addr_);
+    pin_code_int_ = 0;
+  }
+
+  // ---- metadata -----------------------------------------------------------------------
+  /// Asks the peer for the attributes selected with set_avrc_metadata_attribute_mask()
+  void request_metadata() {
+    if (!avrcp_cid_ || metadata_mask_ == 0) return;
+    if (metadata_mask_ == MD_ALL) {
+      avrcp_controller_get_now_playing_info(avrcp_cid_);
+      return;
+    }
+    // bit n of the mask (MD_TITLE = bit 0 ...) is AVRCP media attribute n + 1
+    avrcp_media_attribute_id_t ids[7];
+    uint8_t count = 0;
+    for (uint8_t bit = 0; bit < 7; bit++)
+      if (metadata_mask_ & (1u << bit)) ids[count++] = (avrcp_media_attribute_id_t)(bit + 1);
+    avrcp_controller_get_element_attributes(avrcp_cid_, count, ids);
+  }
 
   // ---- initialization ----------------------------------------------------------------
   bool setup_all() {
@@ -353,7 +504,7 @@ class BluetoothA2DPCommon {
     gap_set_default_link_policy_settings(LM_LINK_POLICY_ENABLE_ROLE_SWITCH |
                                          LM_LINK_POLICY_ENABLE_SNIFF_MODE);
     gap_set_allow_role_switch(true);
-    gap_ssp_set_auto_accept(pairing_cb_ == nullptr);
+    do_apply_pairing_mode();
 
     hci_event_registration_.callback = &hci_cb;
     hci_add_event_handler(&hci_event_registration_);
@@ -383,11 +534,24 @@ class BluetoothA2DPCommon {
         break;
       case HCI_EVENT_USER_CONFIRMATION_REQUEST:
         hci_event_user_confirmation_request_get_bd_addr(packet, addr);
-        if (!pairing_cb_ ||
-            pairing_cb_(hci_event_user_confirmation_request_get_numeric_value(packet)))
+        if (pairing_cb_) {
+          if (pairing_cb_(hci_event_user_confirmation_request_get_numeric_value(packet)))
+            gap_ssp_confirmation_response(addr);
+          else
+            gap_ssp_confirmation_negative(addr);
+        } else if (pin_code_active_) {
+          // answered later by confirm_pin_code()
+          memcpy(pin_addr_, addr, 6);
+          pin_code_int_ = (int)hci_event_user_confirmation_request_get_numeric_value(packet);
+        } else {
           gap_ssp_confirmation_response(addr);
-        else
-          gap_ssp_confirmation_negative(addr);
+        }
+        break;
+      case HCI_EVENT_SIMPLE_PAIRING_COMPLETE:
+        pin_code_int_ = 0;
+        break;
+      case GAP_EVENT_RSSI_MEASUREMENT:
+        handle_rssi(packet);
         break;
       default:
         break;
@@ -427,7 +591,7 @@ class BluetoothA2DPCommon {
   }
 
   void emit_text(uint8_t id, const uint8_t* value, uint16_t len) {
-    if (!metadata_cb_) return;
+    if (!metadata_cb_ || !(metadata_mask_ & id)) return;  // some peers send all attributes
     char text[256];
     if (len > sizeof(text) - 1) len = sizeof(text) - 1;
     if (len) memcpy(text, value, len);
@@ -436,7 +600,7 @@ class BluetoothA2DPCommon {
   }
 
   void emit_number(uint8_t id, uint32_t value) {
-    if (!metadata_cb_) return;
+    if (!metadata_cb_ || !(metadata_mask_ & id)) return;
     char text[16];
     snprintf(text, sizeof(text), "%lu", (unsigned long)value);
     metadata_cb_(id, (const uint8_t*)text);
@@ -454,15 +618,29 @@ class BluetoothA2DPCommon {
           avrcp_controller_enable_notification(avrcp_cid_, AVRCP_NOTIFICATION_EVENT_TRACK_CHANGED);
         if (peer_events_ & (1u << AVRCP_NOTIFICATION_EVENT_NOW_PLAYING_CONTENT_CHANGED))
           avrcp_controller_enable_notification(avrcp_cid_, AVRCP_NOTIFICATION_EVENT_NOW_PLAYING_CONTENT_CHANGED);
-        avrcp_controller_get_now_playing_info(avrcp_cid_);
+        if (play_pos_cb_ && (peer_events_ & (1u << AVRCP_NOTIFICATION_EVENT_PLAYBACK_POS_CHANGED)))
+          avrcp_controller_enable_notification(avrcp_cid_, AVRCP_NOTIFICATION_EVENT_PLAYBACK_POS_CHANGED);
+        request_metadata();
         break;
+      case AVRCP_SUBEVENT_NOTIFICATION_PLAYBACK_POS_CHANGED: {
+        uint32_t pos = avrcp_subevent_notification_playback_pos_changed_get_playback_position_ms(packet);
+        uint32_t now = btstack_run_loop_get_time_ms();
+        // btstack asks for a report every second: pass on one per interval
+        if (play_pos_cb_ && (!play_pos_reported_ || now - play_pos_last_ms_ >= play_pos_interval_ms_)) {
+          play_pos_reported_ = true;
+          play_pos_last_ms_ = now;
+          play_pos_cb_(pos);
+        }
+        break;
+      }
       case AVRCP_SUBEVENT_NOTIFICATION_PLAYBACK_STATUS_CHANGED:
         if (playstatus_cb_)
           playstatus_cb_((PlayStatus)avrcp_subevent_notification_playback_status_changed_get_play_status(packet));
         break;
       case AVRCP_SUBEVENT_NOTIFICATION_TRACK_CHANGED:
       case AVRCP_SUBEVENT_NOTIFICATION_NOW_PLAYING_CONTENT_CHANGED:
-        avrcp_controller_get_now_playing_info(avrcp_cid_);
+        play_pos_reported_ = false;  // report the position of the new track at once
+        request_metadata();
         break;
       case AVRCP_SUBEVENT_NOTIFICATION_VOLUME_CHANGED:
         remote_volume_changed(avrcp_subevent_notification_volume_changed_get_absolute_volume(packet));

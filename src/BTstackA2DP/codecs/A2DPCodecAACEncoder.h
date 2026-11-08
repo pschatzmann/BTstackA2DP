@@ -39,6 +39,13 @@ class A2DPCodecAACEncoder : public SourceCodec, public Print {
     memset(cfg_, 0, sizeof(cfg_));
   }
 
+  /// Called with the bitrate that was agreed with the peer (the requested one, lowered to the
+  /// peer's maximum), before the encoder starts. With a callback the sketch sets the encoder's
+  /// bitrate itself (e.g. fdk.setBitrate(bitrate)); without one it is set automatically.
+  void set_bitrate_callback(void (*callback)(uint32_t bitrate)) { bitrate_cb_ = callback; }
+  /// Bitrate used for the stream (valid after the configuration)
+  uint32_t bitrate() const { return bit_rate_; }
+
   uint8_t codec_type() const override { return AVDTP_CODEC_MPEG_2_4_AAC; }
   const uint8_t* capabilities(uint8_t& len) override {
     len = sizeof(caps_);
@@ -92,6 +99,7 @@ class A2DPCodecAACEncoder : public SourceCodec, public Print {
     rate_ = a2dp_subevent_signaling_media_codec_mpeg_aac_configuration_get_sampling_frequency(e);
     uint32_t br = a2dp_subevent_signaling_media_codec_mpeg_aac_configuration_get_bit_rate(e);
     if (br && br < bit_rate_) bit_rate_ = br;
+    if (bitrate_cb_) bitrate_cb_(bit_rate_);
     return true;
   }
 
@@ -106,7 +114,7 @@ class A2DPCodecAACEncoder : public SourceCodec, public Print {
     info.channels = 2;
     info.bits_per_sample = 16;
     enc_.setOutput(*this);
-    enc_.setBitrate(bit_rate_);
+    if (!bitrate_cb_) enc_.setBitrate(bit_rate_);
     opened_ = enc_.begin(info);
     return opened_;
   }
@@ -145,6 +153,7 @@ class A2DPCodecAACEncoder : public SourceCodec, public Print {
   uint8_t adts_[2048];
   uint16_t out_len_ = 0;
   bool opened_ = false;
+  void (*bitrate_cb_)(uint32_t) = nullptr;
 };
 
 }  // namespace blue_a2dp
