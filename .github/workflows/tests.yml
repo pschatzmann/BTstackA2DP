@@ -1,0 +1,28 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  desktop:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev pkg-config cmake g++
+      - name: Build the command line tool (plain build, no hardware needed)
+        run: cmake -S . -B build && cmake --build build -j4
+  esp32-compile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v1
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      - name: Compile the basic examples
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --library . examples/sink-serial
+          arduino-cli compile --fqbn esp32:esp32:esp32 --library . examples/source-sine

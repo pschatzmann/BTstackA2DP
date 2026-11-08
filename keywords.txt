@@ -1,0 +1,15 @@
+BluetoothA2DPSink	KEYWORD1
+BluetoothA2DPSource	KEYWORD1
+Frame	KEYWORD1
+AudioInfo	KEYWORD1
+start	KEYWORD2
+start_raw	KEYWORD2
+set_stream_reader	KEYWORD2
+set_data_callback_in_frames	KEYWORD2
+set_on_connection_state_changed	KEYWORD2
+set_on_audio_state_changed	KEYWORD2
+set_avrc_metadata_callback	KEYWORD2
+set_on_volume_change	KEYWORD2
+set_volume	KEYWORD2
+set_auto_reconnect	KEYWORD2
+is_connected	KEYWORD2

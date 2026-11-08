@@ -1,0 +1,5 @@
+btstack source: /home/pschatzmann/.arduino15/packages/rp2040/hardware/rp2040/6.3.2/pico-sdk/lib/btstack
+#ifndef BTSTACK_VERSION_H
+#define BTSTACK_VERSION_H
+#define BTSTACK_VERSION_MAJOR 1
+vendored: 2026-11-08

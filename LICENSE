@@ -1,0 +1,18 @@
+BlueA2DP licensing
+==================
+
+1. Our code: src/BlueA2DP.h, src/BlueA2DP/**, src/btstack_config.h, examples/**,
+   extras/test/**, extras/scripts/** and CMakeLists.txt are released under the MIT
+   License (Copyright (c) Phil Schatzmann).
+
+2. Vendored third party code in src/btstack/ (produced by
+   extras/scripts/vendor_btstack.sh, see extras/BTSTACK_VERSION.txt):
+
+   * BlueKitchen btstack (src/btstack/): NOT free for commercial
+     use. Redistribution and use are permitted "solely for personal benefit and not for
+     any commercial purpose or for monetary gain" (see the license header in each
+     file). For commercial licensing contact contact@bluekitchen-gmbh.com.
+   * Bluedroid SBC codec (Apache License 2.0), rijndael (public domain), yxml (MIT).
+
+Using this library in a commercial product therefore requires a commercial btstack
+license from BlueKitchen.
